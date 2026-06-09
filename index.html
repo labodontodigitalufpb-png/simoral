@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ExamOSim | Anamnese Odontológica IA</title>
+    <link rel="stylesheet" href="styles.css?v=20260609-osce-export-1" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <aside class="case-panel">
+        <div class="brand">
+          <span class="brand-mark">ES</span>
+          <div>
+            <h1>ExamOSim</h1>
+            <p data-i18n="tagline">Simulador inteligente de anamnese odontológica</p>
+            <p class="brand-credit">Desenvolvido pela UFPB (LABODIGIT) e UEL (Estomatologia)</p>
+          </div>
+        </div>
+
+        <section class="panel-block language-card">
+          <div class="section-title">
+            <span data-i18n="language">Idioma</span>
+            <select id="languageSelect" aria-label="Selecionar idioma">
+              <option value="pt">Português</option>
+              <option value="en">English</option>
+              <option value="es">Español</option>
+            </select>
+          </div>
+        </section>
+
+        <section class="panel-block student-card">
+          <div class="section-title">
+            <span data-i18n="student">Aluno</span>
+          </div>
+          <form id="studentForm" class="student-form">
+            <input id="studentName" type="text" placeholder="Nome do aluno" aria-label="Nome do aluno" />
+            <input id="studentId" type="text" placeholder="Matrícula" aria-label="Matrícula" />
+            <input id="studentCollege" type="text" placeholder="Faculdade" aria-label="Faculdade" />
+          </form>
+        </section>
+
+        <section class="panel-block">
+          <div class="section-title">
+            <span data-i18n="clinicalCase">Caso clínico</span>
+            <select id="caseSelect" aria-label="Selecionar caso clínico"></select>
+          </div>
+          <div id="caseSummary" class="case-summary"></div>
+        </section>
+
+        <section class="panel-block">
+          <div class="section-title">
+            <span data-i18n="chart">Prontuário</span>
+          </div>
+          <dl id="chartList" class="chart-list"></dl>
+        </section>
+
+        <section class="panel-block">
+          <div class="section-title">
+            <span data-i18n="progress">Progresso</span>
+          </div>
+          <div id="progressList" class="progress-list"></div>
+        </section>
+
+        <section class="panel-block">
+          <div class="section-title">
+            <span data-i18n="physicalExam">Exame físico</span>
+          </div>
+          <div id="physicalExamBox" class="physical-exam-box"></div>
+        </section>
+      </aside>
+
+      <section class="clinic-stage" aria-label="Consultório virtual">
+        <div class="stage-topbar">
+          <div>
+            <p class="eyebrow" data-i18n="virtualOffice">Consultório virtual 3D</p>
+            <h2 id="patientName">Paciente</h2>
+          </div>
+          <div class="vitals">
+            <span id="emotionBadge">Calmo</span>
+            <span id="difficultyBadge">Dificuldade</span>
+          </div>
+        </div>
+
+        <div class="room patient-photo-stage">
+          <div class="avatar photo-avatar" id="avatar">
+            <img id="patientImage" src="" alt="Paciente sentado na cadeira odontológica" />
+          </div>
+        </div>
+
+        <div class="chat-card">
+          <div class="voice-toolbar" aria-label="Controles de áudio">
+            <label class="voice-toggle">
+              <input id="voiceToggle" type="checkbox" />
+              <span data-i18n="patientVoice">Voz do paciente</span>
+            </label>
+            <button id="micBtn" class="icon-action" type="button" aria-label="Falar pergunta">Mic</button>
+            <span id="voiceStatus">Microfone disponível no Chrome/Edge.</span>
+          </div>
+          <div id="chatLog" class="chat-log" aria-live="polite"></div>
+          <form id="chatForm" class="chat-form">
+            <input
+              id="questionInput"
+              type="text"
+              autocomplete="off"
+              placeholder="Pergunte ao paciente, por exemplo: ha quanto tempo esta com a ferida?"
+              aria-label="Pergunta ao paciente"
+            />
+            <button type="submit" data-i18n="send">Enviar</button>
+          </form>
+        </div>
+      </section>
+
+      <aside class="reasoning-panel">
+        <section class="panel-block">
+          <div class="section-title">
+            <span data-i18n="anamnesisSequence">Sequência da anamnese</span>
+          </div>
+          <div id="flowList" class="flow-list"></div>
+        </section>
+
+        <section class="panel-block">
+          <div class="section-title">
+            <span data-i18n="diagnosticHypotheses">Hipóteses diagnósticas</span>
+          </div>
+          <div id="hypothesisList" class="choice-list"></div>
+        </section>
+
+        <section class="panel-block">
+          <div class="section-title">
+            <span data-i18n="examsConduct">Exames e conduta</span>
+          </div>
+          <div id="actionList" class="choice-list"></div>
+        </section>
+
+        <section class="panel-block">
+          <div class="section-title">
+            <span data-i18n="evaluation">Avaliação</span>
+          </div>
+          <label class="osce-notes">
+            <span>Observações da OSCE</span>
+            <textarea id="osceNotes" rows="4" placeholder="Registre comentários do avaliador, pontos fortes, lacunas e recomendações."></textarea>
+          </label>
+          <button id="finishBtn" class="primary-action" data-i18n="finishCare">Finalizar atendimento</button>
+          <div class="osce-actions" aria-label="Exportação OSCE">
+            <button id="saveOsceBtn" type="button">Salvar OSCE</button>
+            <button id="exportCurrentOsceBtn" type="button">CSV atual</button>
+            <button id="exportAllOsceBtn" type="button">CSV geral</button>
+            <button id="clearOsceBtn" type="button">Limpar</button>
+          </div>
+          <p id="osceStatus" class="osce-status" aria-live="polite"></p>
+          <div id="report" class="report"></div>
+        </section>
+      </aside>
+    </main>
+
+    <script src="app.js?v=20260609-osce-export-1"></script>
+  </body>
+</html>
