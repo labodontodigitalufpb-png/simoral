@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: examosim
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_MODEL
+        value: gemini-2.5-flash
+      - key: CARTESIA_API_KEY
+        sync: false
+      - key: CARTESIA_MODEL
+        value: sonic-3.5

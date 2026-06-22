@@ -28,6 +28,15 @@ const MIME_TYPES = {
 
 const server = http.createServer(async (req, res) => {
   try {
+    if (req.method === "GET" && req.url === "/health") {
+      sendJson(res, 200, {
+        status: "ok",
+        geminiConfigured: Boolean(GEMINI_API_KEY),
+        cartesiaConfigured: Boolean(CARTESIA_API_KEY)
+      });
+      return;
+    }
+
     if (req.method === "POST" && req.url === "/api/gemini-dialogue") {
       await handleGeminiDialogue(req, res);
       return;

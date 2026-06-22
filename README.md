@@ -44,6 +44,12 @@ Depois acesse:
 http://localhost:5173
 ```
 
+Também é possível iniciar com:
+
+```bash
+npm start
+```
+
 Se a porta 5173 estiver ocupada:
 
 ```bash
