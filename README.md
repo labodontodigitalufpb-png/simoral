@@ -20,6 +20,7 @@ Protótipo inicial do Simulador Inteligente de Anamnese Odontológica com IA.
 - Dados ocultos liberados por perguntas relevantes.
 - Paciente com respostas evasivas ou progressivas.
 - Voz do paciente por síntese de fala do navegador.
+- Voz natural do paciente pela Cartesia Sonic, com síntese do navegador como fallback.
 - Entrada por microfone para o profissional quando o navegador suportar reconhecimento de fala.
 - Prontuário digital atualizado durante a consulta.
 - Seleção de hipóteses diagnósticas.
@@ -67,6 +68,17 @@ O Gemini recebe apenas a pergunta, a resposta-base segura e os dados clínicos j
 
 > Observação: o Gemini via `/api/gemini-dialogue` depende do `server.js`. Em GitHub Pages, que é estático, essa rota não funciona. Para usar Gemini em acesso público, publique o backend Node separadamente e mantenha a chave fora dos arquivos públicos.
 
+## Cartesia opcional
+
+Para ativar a voz natural do paciente, acrescente ao `.env`:
+
+```text
+CARTESIA_API_KEY=sua_chave
+CARTESIA_MODEL=sonic-3.5
+```
+
+O servidor escolhe automaticamente uma voz pelo idioma e gênero do paciente. Para usar sempre uma voz específica, configure também `CARTESIA_VOICE_ID`. A chave permanece no backend e nunca é enviada ao navegador.
+
 ## Planilha OSCE
 
 Na seção `Avaliação`, use:
@@ -99,7 +111,7 @@ Para publicar a versão estática no GitHub Pages, siga o guia em `DEPLOY_GITHUB
 
 ## Áudio
 
-O botão `Voz do paciente` ativa a leitura das respostas do paciente. O botão `Mic` tenta captar a pergunta do profissional e enviá-la automaticamente. O reconhecimento de fala depende do navegador e costuma funcionar melhor em Chrome ou Edge.
+O botão `Voz do paciente` ativa a leitura das respostas pela Cartesia quando configurada, com fallback automático para a síntese do navegador. O botão `Mic` tenta captar a pergunta do profissional e enviá-la automaticamente. O reconhecimento de fala depende do navegador e costuma funcionar melhor em Chrome ou Edge.
 
 ## Assets importados
 

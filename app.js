@@ -23,6 +23,9 @@ const state = {
   },
   voiceEnabled: false,
   voices: [],
+  patientAudio: null,
+  patientAudioUrl: "",
+  speechRequestId: 0,
   recognition: null,
   recognizing: false
 };
@@ -129,6 +132,9 @@ const I18N = {
     micReady: "Microfone pronto para nova pergunta.",
     micError: "Nao consegui captar o audio. Tente novamente.",
     micAvailable: "Microfone disponível no Chrome/Edge.",
+    voiceBrowserReady: "Voz ativa pelo navegador.",
+    voiceSpeaking: "Paciente falando...",
+    voiceUnavailable: "Síntese de voz indisponível neste navegador.",
     score: "Nota",
     diagnosis: "Diagnostico",
     diagnosisHit: "hipotese principal correta",
@@ -216,6 +222,9 @@ const I18N = {
     micReady: "Microphone ready for a new question.",
     micError: "I could not capture the audio. Please try again.",
     micAvailable: "Microphone available in Chrome/Edge.",
+    voiceBrowserReady: "Voice enabled through the browser.",
+    voiceSpeaking: "Patient speaking...",
+    voiceUnavailable: "Speech synthesis is unavailable in this browser.",
     score: "Score",
     diagnosis: "Diagnosis",
     diagnosisHit: "main hypothesis correct",
@@ -303,6 +312,9 @@ const I18N = {
     micReady: "Micrófono listo para una nueva pregunta.",
     micError: "No pude captar el audio. Inténtelo nuevamente.",
     micAvailable: "Micrófono disponible en Chrome/Edge.",
+    voiceBrowserReady: "Voz activa mediante el navegador.",
+    voiceSpeaking: "Paciente hablando...",
+    voiceUnavailable: "La síntesis de voz no está disponible en este navegador.",
     score: "Nota",
     diagnosis: "Diagnóstico",
     diagnosisHit: "hipótesis principal correcta",
@@ -1881,21 +1893,23 @@ function renderFlow() {
     const domain = domainCoverageReport(step.id);
     const level = domain.coverage >= 80 ? "green" : domain.coverage > 0 ? "yellow" : "red";
     const hasSequenceJump = state.outOfOrderEvents.some((event) => event.groupId === step.id);
-    const progressText = `${domain.coverage}% · ${t("questionsShort")} ${domain.questionCount} · ${t("dataShort")} ${domain.revealedRequired}`;
     const status = currentStage === step.id
-      ? `${t("currentStage")} · ${progressText}`
+      ? t("currentStage")
       : hasSequenceJump
-        ? `${t("outOfOrder")} · ${progressText}`
+        ? t("outOfOrder")
         : level === "green"
-          ? `${t("stageGreen")} · ${progressText}`
+          ? t("stageGreen")
           : level === "yellow"
-            ? `${t("stageYellow")} · ${progressText}`
-            : progressText;
+            ? t("stageYellow")
+            : t("pending");
     const classes = [level, currentStage === step.id ? "current" : "", hasSequenceJump ? "sequence-warning" : ""].filter(Boolean).join(" ");
     return `
       <div class="flow-step ${classes}">
         <div class="flow-step-main">
-          <span>${index + 1}. ${flowLabel(step.id)}</span>
+          <span class="flow-step-title">
+            <span class="flow-step-number">${index + 1}</span>
+            <span>${flowLabel(step.id)}</span>
+          </span>
           <strong>${status}</strong>
         </div>
         <div class="coverage-bar" aria-label="${flowLabel(step.id)} ${domain.coverage}%">
@@ -3886,7 +3900,7 @@ els.caseSelect.addEventListener("change", (event) => loadCase(event.target.value
 els.languageSelect.addEventListener("change", (event) => {
   state.language = event.target.value;
   if (state.recognition) state.recognition.lang = t("langCode");
-  window.speechSynthesis?.cancel();
+  stopPatientVoice();
   rerenderLanguageDependentViews({ resetConversation: true });
 });
 
@@ -3901,9 +3915,22 @@ els.studentForm.addEventListener("input", () => {
 
 els.voiceToggle.addEventListener("change", () => {
   state.voiceEnabled = els.voiceToggle.checked;
-  if (!state.voiceEnabled && "speechSynthesis" in window) {
-    window.speechSynthesis.cancel();
+  if (!state.voiceEnabled) {
+    stopPatientVoice();
+    els.voiceStatus.textContent = state.recognition ? t("micAvailable") : t("unavailableMic");
+    return;
   }
+
+  if (!("speechSynthesis" in window)) {
+    els.voiceStatus.textContent = t("voiceUnavailable");
+  } else {
+    els.voiceStatus.textContent = t("voiceBrowserReady");
+  }
+
+  const latestPatientMessage = [...state.transcript]
+    .reverse()
+    .find((entry) => entry.kind === "patient");
+  if (latestPatientMessage) speakPatient(latestPatientMessage.text);
 });
 
 els.micBtn.addEventListener("click", () => {
@@ -3920,8 +3947,48 @@ els.micBtn.addEventListener("click", () => {
   state.recognition.start();
 });
 
-function speakPatient(text) {
-  if (!state.voiceEnabled || !("speechSynthesis" in window)) return;
+async function speakPatient(text) {
+  if (!state.voiceEnabled) return;
+
+  stopPatientVoice();
+  const requestId = state.speechRequestId;
+  const patient = state.currentCase?.patient;
+
+  try {
+    const response = await fetch("/api/cartesia-tts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        text,
+        language: state.language,
+        gender: isFemalePatient(patient) ? "feminine" : "masculine",
+        speed: voiceRateForPatient(patient)
+      })
+    });
+    if (!response.ok) throw new Error(`Cartesia TTS returned ${response.status}`);
+
+    const audioBlob = await response.blob();
+    if (!state.voiceEnabled || requestId !== state.speechRequestId) return;
+
+    state.patientAudioUrl = URL.createObjectURL(audioBlob);
+    state.patientAudio = new Audio(state.patientAudioUrl);
+    state.patientAudio.addEventListener("ended", clearPatientAudio, { once: true });
+    state.patientAudio.addEventListener("error", clearPatientAudio, { once: true });
+    els.voiceStatus.textContent = t("voiceSpeaking");
+    await state.patientAudio.play();
+    return;
+  } catch (error) {
+    if (!state.voiceEnabled || requestId !== state.speechRequestId) return;
+  }
+
+  speakPatientWithBrowser(text);
+}
+
+function speakPatientWithBrowser(text) {
+  if (!("speechSynthesis" in window)) {
+    els.voiceStatus.textContent = t("voiceUnavailable");
+    return;
+  }
 
   window.speechSynthesis.cancel();
   loadVoices();
@@ -3931,7 +3998,33 @@ function speakPatient(text) {
   utterance.rate = voiceRateForPatient(patient);
   utterance.pitch = voicePitchForPatient(patient);
   utterance.voice = chooseVoiceForPatient();
+  utterance.addEventListener("start", () => {
+    els.voiceStatus.textContent = t("voiceSpeaking");
+  });
+  utterance.addEventListener("end", () => {
+    if (state.voiceEnabled) els.voiceStatus.textContent = t("voiceBrowserReady");
+  });
+  utterance.addEventListener("error", () => {
+    els.voiceStatus.textContent = t("voiceUnavailable");
+  });
   window.speechSynthesis.speak(utterance);
+}
+
+function stopPatientVoice() {
+  state.speechRequestId += 1;
+  window.speechSynthesis?.cancel();
+  if (state.patientAudio) {
+    state.patientAudio.pause();
+    state.patientAudio.currentTime = 0;
+  }
+  clearPatientAudio();
+}
+
+function clearPatientAudio() {
+  state.patientAudio = null;
+  if (state.patientAudioUrl) URL.revokeObjectURL(state.patientAudioUrl);
+  state.patientAudioUrl = "";
+  if (state.voiceEnabled) els.voiceStatus.textContent = t("voiceBrowserReady");
 }
 
 function chooseVoiceForPatient() {

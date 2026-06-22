@@ -7,7 +7,12 @@ loadEnvFile();
 const PORT = Number(process.env.PORT || 5173);
 const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
+const CARTESIA_API_KEY = process.env.CARTESIA_API_KEY || "";
+const CARTESIA_MODEL = process.env.CARTESIA_MODEL || "sonic-3.5";
+const CARTESIA_VERSION = process.env.CARTESIA_VERSION || "2026-03-01";
+const CARTESIA_VOICE_ID = process.env.CARTESIA_VOICE_ID || "";
 const PUBLIC_DIR = __dirname;
+const cartesiaVoiceCache = new Map();
 
 const MIME_TYPES = {
   ".css": "text/css; charset=utf-8",
@@ -28,6 +33,11 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    if (req.method === "POST" && req.url === "/api/cartesia-tts") {
+      await handleCartesiaTts(req, res);
+      return;
+    }
+
     if (req.method !== "GET" && req.method !== "HEAD") {
       sendJson(res, 405, { error: "Method not allowed" });
       return;
@@ -45,7 +55,102 @@ server.listen(PORT, () => {
   if (!GEMINI_API_KEY) {
     console.log("Gemini polishing disabled: set GEMINI_API_KEY in .env to enable it.");
   }
+  if (!CARTESIA_API_KEY) {
+    console.log("Cartesia voice disabled: set CARTESIA_API_KEY in .env to enable it.");
+  }
 });
+
+async function handleCartesiaTts(req, res) {
+  if (!CARTESIA_API_KEY) {
+    sendJson(res, 503, { error: "Cartesia is not configured" });
+    return;
+  }
+
+  const body = await readJsonBody(req);
+  const transcript = String(body.text || "").trim().slice(0, 1200);
+  if (!transcript) {
+    sendJson(res, 400, { error: "Text is required" });
+    return;
+  }
+
+  const language = ["pt", "en", "es"].includes(body.language) ? body.language : "pt";
+  const gender = body.gender === "feminine" ? "feminine" : "masculine";
+  const voiceId = CARTESIA_VOICE_ID || await findCartesiaVoice(language, gender);
+  if (!voiceId) {
+    sendJson(res, 502, { error: "No compatible Cartesia voice was found" });
+    return;
+  }
+
+  const speed = Number.isFinite(Number(body.speed))
+    ? Math.min(Math.max(Number(body.speed), 0.7), 1.3)
+    : 1;
+  const cartesiaResponse = await fetch("https://api.cartesia.ai/tts/bytes", {
+    method: "POST",
+    headers: cartesiaHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({
+      model_id: CARTESIA_MODEL,
+      transcript,
+      voice: { mode: "id", id: voiceId },
+      language,
+      output_format: {
+        container: "mp3",
+        sample_rate: 44100,
+        bit_rate: 128000
+      },
+      generation_config: { speed, volume: 1 }
+    })
+  });
+
+  if (!cartesiaResponse.ok) {
+    const details = await cartesiaResponse.text().catch(() => "");
+    console.error("Cartesia TTS error:", cartesiaResponse.status, details.slice(0, 500));
+    sendJson(res, 502, { error: "Cartesia could not synthesize the voice" });
+    return;
+  }
+
+  const audio = Buffer.from(await cartesiaResponse.arrayBuffer());
+  res.writeHead(200, {
+    "Content-Type": cartesiaResponse.headers.get("content-type") || "audio/mpeg",
+    "Content-Length": audio.length,
+    "Cache-Control": "no-store"
+  });
+  res.end(audio);
+}
+
+async function findCartesiaVoice(language, gender) {
+  const cacheKey = `${language}:${gender}`;
+  if (cartesiaVoiceCache.has(cacheKey)) return cartesiaVoiceCache.get(cacheKey);
+
+  const query = new URLSearchParams({
+    language,
+    gender,
+    limit: "100"
+  });
+  const response = await fetch(`https://api.cartesia.ai/voices?${query}`, {
+    headers: cartesiaHeaders()
+  });
+  if (!response.ok) {
+    const details = await response.text().catch(() => "");
+    console.error("Cartesia voices error:", response.status, details.slice(0, 500));
+    return "";
+  }
+
+  const data = await response.json().catch(() => ({}));
+  const voices = Array.isArray(data.data) ? data.data : [];
+  const preferredCountry = language === "pt" ? "BR" : language === "en" ? "US" : null;
+  const voice = voices.find((item) => !preferredCountry || item.country === preferredCountry) || voices[0];
+  const voiceId = voice?.id || "";
+  if (voiceId) cartesiaVoiceCache.set(cacheKey, voiceId);
+  return voiceId;
+}
+
+function cartesiaHeaders(extra = {}) {
+  return {
+    Authorization: `Bearer ${CARTESIA_API_KEY}`,
+    "Cartesia-Version": CARTESIA_VERSION,
+    ...extra
+  };
+}
 
 async function handleGeminiDialogue(req, res) {
   if (!GEMINI_API_KEY) {
