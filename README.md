@@ -85,6 +85,8 @@ CARTESIA_MODEL=sonic-3.5
 
 O servidor escolhe automaticamente uma voz pelo idioma e gênero do paciente. Para usar sempre uma voz específica, configure também `CARTESIA_VOICE_ID`. A chave permanece no backend e nunca é enviada ao navegador.
 
+No GitHub Pages, o frontend usa o backend público em `https://simoral.onrender.com`. Em execução local, as chamadas continuam sendo feitas ao mesmo servidor que entrega a interface.
+
 ## Planilha OSCE
 
 Na seção `Avaliação`, use:

@@ -13,6 +13,11 @@ const CARTESIA_VERSION = process.env.CARTESIA_VERSION || "2026-03-01";
 const CARTESIA_VOICE_ID = process.env.CARTESIA_VOICE_ID || "";
 const PUBLIC_DIR = __dirname;
 const cartesiaVoiceCache = new Map();
+const ALLOWED_ORIGINS = new Set([
+  "https://labodontodigitalufpb-png.github.io",
+  "http://localhost:5173",
+  "http://127.0.0.1:5173"
+]);
 
 const MIME_TYPES = {
   ".css": "text/css; charset=utf-8",
@@ -28,6 +33,13 @@ const MIME_TYPES = {
 
 const server = http.createServer(async (req, res) => {
   try {
+    applyCors(req, res);
+    if (req.method === "OPTIONS") {
+      res.writeHead(204);
+      res.end();
+      return;
+    }
+
     if (req.method === "GET" && req.url === "/health") {
       sendJson(res, 200, {
         status: "ok",
@@ -369,6 +381,16 @@ function readJsonBody(req) {
 function sendJson(res, status, payload) {
   res.writeHead(status, { "Content-Type": "application/json; charset=utf-8" });
   res.end(JSON.stringify(payload));
+}
+
+function applyCors(req, res) {
+  const origin = req.headers.origin;
+  if (!origin || !ALLOWED_ORIGINS.has(origin)) return;
+
+  res.setHeader("Access-Control-Allow-Origin", origin);
+  res.setHeader("Access-Control-Allow-Methods", "GET, HEAD, POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.setHeader("Vary", "Origin");
 }
 
 function loadEnvFile() {

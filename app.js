@@ -1,3 +1,12 @@
+const API_BASE_URL =
+  window.location.hostname.endsWith("github.io")
+    ? "https://simoral.onrender.com"
+    : "";
+
+function apiUrl(path) {
+  return `${API_BASE_URL}${path}`;
+}
+
 const state = {
   language: "pt",
   cases: [],
@@ -2112,7 +2121,7 @@ async function polishPatientDialogue(question, rawAnswer, clinicalDatum = null) 
   if (!rawAnswer || typeof rawAnswer !== "string") return rawAnswer;
 
   try {
-    const response = await fetch("/api/gemini-dialogue", {
+    const response = await fetch(apiUrl("/api/gemini-dialogue"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -3955,7 +3964,7 @@ async function speakPatient(text) {
   const patient = state.currentCase?.patient;
 
   try {
-    const response = await fetch("/api/cartesia-tts", {
+    const response = await fetch(apiUrl("/api/cartesia-tts"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
