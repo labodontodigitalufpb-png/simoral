@@ -10,6 +10,7 @@ function apiUrl(path) {
 const state = {
   language: "pt",
   cases: [],
+  lesionImageLibrary: {},
   currentCase: null,
   revealed: new Set(),
   askedIntents: new Map(),
@@ -17,7 +18,6 @@ const state = {
   selectedActions: new Set(),
   transcript: [],
   flowEvents: [],
-  outOfOrderEvents: [],
   structuredQuestions: {},
   structuredQuestionTotals: {},
   hdaQuestionAxes: new Set(),
@@ -25,18 +25,24 @@ const state = {
   pendingAnamnesisUpdate: null,
   pendingClinicalDatum: null,
   physicalExamUnlocked: false,
+  sessionRole: "professional",
+  consultationPhase: "anamnesis",
+  unlockedPhases: new Set(["anamnesis"]),
+  selectedPhysicalExams: new Set(),
+  revealedExamFindings: [],
+  clinicalImageRevealed: false,
+  clinicalImageIndex: 0,
+  diagnosisOrder: [],
+  startedAt: null,
   student: {
     name: "",
     id: "",
-    college: ""
-  },
-  voiceEnabled: false,
-  voices: [],
-  patientAudio: null,
-  patientAudioUrl: "",
-  speechRequestId: 0,
-  recognition: null,
-  recognizing: false
+    college: "",
+    profession: "",
+    city: "",
+    stateRegion: "",
+    email: ""
+  }
 };
 
 const els = {
@@ -45,6 +51,11 @@ const els = {
   studentName: document.querySelector("#studentName"),
   studentId: document.querySelector("#studentId"),
   studentCollege: document.querySelector("#studentCollege"),
+  profession: document.querySelector("#profession"),
+  city: document.querySelector("#city"),
+  stateRegion: document.querySelector("#stateRegion"),
+  professionalEmail: document.querySelector("#professionalEmail"),
+  dashboardStats: document.querySelector("#dashboardStats"),
   caseSelect: document.querySelector("#caseSelect"),
   caseSummary: document.querySelector("#caseSummary"),
   chartList: document.querySelector("#chartList"),
@@ -54,16 +65,30 @@ const els = {
   difficultyBadge: document.querySelector("#difficultyBadge"),
   avatar: document.querySelector("#avatar"),
   patientImage: document.querySelector("#patientImage"),
+  clinicalImagePanel: document.querySelector("#clinicalImagePanel"),
+  clinicalImage: document.querySelector("#clinicalImage"),
+  clinicalImageTitle: document.querySelector("#clinicalImageTitle"),
+  clinicalImageCaption: document.querySelector("#clinicalImageCaption"),
+  clinicalImageSource: document.querySelector("#clinicalImageSource"),
+  nextClinicalImageBtn: document.querySelector("#nextClinicalImageBtn"),
   flowList: document.querySelector("#flowList"),
+  phaseNav: document.querySelector("#phaseNav"),
+  proceedExamBtn: document.querySelector("#proceedExamBtn"),
+  physicalExamSection: document.querySelector("#physicalExamSection"),
+  physicalExamOptions: document.querySelector("#physicalExamOptions"),
   physicalExamBox: document.querySelector("#physicalExamBox"),
+  completeExamBtn: document.querySelector("#completeExamBtn"),
   chatLog: document.querySelector("#chatLog"),
   chatForm: document.querySelector("#chatForm"),
   questionInput: document.querySelector("#questionInput"),
-  voiceToggle: document.querySelector("#voiceToggle"),
-  micBtn: document.querySelector("#micBtn"),
-  voiceStatus: document.querySelector("#voiceStatus"),
   hypothesisList: document.querySelector("#hypothesisList"),
+  diagnosisJustification: document.querySelector("#diagnosisJustification"),
+  proceedExamsBtn: document.querySelector("#proceedExamsBtn"),
   actionList: document.querySelector("#actionList"),
+  examResults: document.querySelector("#examResults"),
+  proceedConductBtn: document.querySelector("#proceedConductBtn"),
+  conductList: document.querySelector("#conductList"),
+  urgencySelect: document.querySelector("#urgencySelect"),
   finishBtn: document.querySelector("#finishBtn"),
   osceNotes: document.querySelector("#osceNotes"),
   saveOsceBtn: document.querySelector("#saveOsceBtn"),
@@ -74,28 +99,53 @@ const els = {
   report: document.querySelector("#report")
 };
 
+const authEls = {
+  landingPage: document.querySelector("#landingPage"),
+  simulatorApp: document.querySelector("#simulatorApp"),
+  loginTab: document.querySelector("#loginTab"),
+  registerTab: document.querySelector("#registerTab"),
+  loginForm: document.querySelector("#loginForm"),
+  registerForm: document.querySelector("#registerForm"),
+  loginInstructions: document.querySelector("#loginInstructions"),
+  loginEmail: document.querySelector("#loginEmail"),
+  loginPassword: document.querySelector("#loginPassword"),
+  authStatus: document.querySelector("#authStatus"),
+  registerName: document.querySelector("#registerName"),
+  registerProfession: document.querySelector("#registerProfession"),
+  registerCity: document.querySelector("#registerCity"),
+  registerState: document.querySelector("#registerState"),
+  registerEmail: document.querySelector("#registerEmail"),
+  registerPassword: document.querySelector("#registerPassword"),
+  registerId: document.querySelector("#registerId"),
+  registerInstitution: document.querySelector("#registerInstitution"),
+  sessionUser: document.querySelector("#sessionUser"),
+  sessionRole: document.querySelector("#sessionRole"),
+  logoutBtn: document.querySelector("#logoutBtn")
+};
+
+const LOCAL_ADMIN_EMAIL = "admin@examosim.local";
+const LOCAL_ADMIN_PASSWORD = "Admin@123";
+
 const I18N = {
   pt: {
-    tagline: "Simulador inteligente de anamnese odontológica",
+    tagline: "Simulador inteligente de raciocínio clínico",
     language: "Idioma",
-    student: "Aluno",
-    studentName: "Nome do aluno",
-    studentId: "Matrícula",
-    studentCollege: "Faculdade",
+    student: "Profissional",
+    studentName: "Nome completo",
+    studentId: "Registro profissional (opcional)",
+    studentCollege: "Instituição de vínculo (opcional)",
     clinicalCase: "Caso clínico",
     selectCase: "Selecionar caso clínico",
     chart: "Prontuário",
     progress: "Progresso",
     physicalExam: "Exame físico",
-    physicalExamLocked: "O exame físico será liberado após cobrir a HDA com perguntas sobre quando, onde, como e por quê, além de pelo menos 2 perguntas nas demais etapas e a maioria dos dados essenciais obtida.",
+    physicalExamLocked: "O exame físico será liberado após 3 perguntas sobre a doença atual, cobrindo ao menos 2 dimensões clínicas, passagem por 3 outros blocos da anamnese e obtenção de parte dos dados essenciais.",
     physicalExamUnlocked: "Detalhes do exame clínico físico liberados",
     physicalExamUnavailable: "Exame físico detalhado não cadastrado para este caso.",
     stageLocked: "Etapa registrada fora da sequência esperada.",
     virtualOffice: "Consultório virtual 3D",
     patient: "Paciente",
-    patientVoice: "Voz do paciente",
     askQuestion: "Pergunte ao paciente, por exemplo: ha quanto tempo esta com a ferida?",
-    speakQuestion: "Falar pergunta",
     send: "Enviar",
     anamnesisSequence: "Sequência da anamnese",
     diagnosticHypotheses: "Hipóteses diagnósticas",
@@ -113,7 +163,6 @@ const I18N = {
     stageRed: "0/3",
     stageYellow: "em andamento",
     stageGreen: "completo",
-    outOfOrder: "fora da ordem",
     currentStage: "etapa atual",
     questionsShort: "perg.",
     dataShort: "dados",
@@ -128,22 +177,13 @@ const I18N = {
     profile: "Perfil",
     base: "Base",
     objective: "Objetivo",
-    baseText: "roteiro clínico extraído do arquivo Word importado.",
-    objectiveText: "siga a sequência: HDA, história familiar, médica, odontológica e hábitos/dependências; na HDA, valorize quando, onde, como e por quê.",
+    baseText: "caso clínico estruturado para treinamento e avaliação educacional.",
+    objectiveText: "conduza a consulta completa: anamnese, exame físico, hipóteses, exames complementares e conduta.",
     studentMissing: "nao cadastrado",
     notInformed: "nao informado",
     collegeMissing: "nao informada",
     complaint: "Queixa",
-    expectedScript: "Roteiro esperado: história da doença atual, história familiar, história médica, história odontológica e hábitos/dependências. Na HDA, investigue quando, onde, como e por quê; perguntas amplas ou específicas liberam dados do prontuário.",
-    unavailableRecognition: "Reconhecimento de fala indisponivel neste navegador.",
-    unavailableMic: "Microfone por voz indisponivel neste navegador.",
-    listening: "Ouvindo a pergunta do profissional...",
-    micReady: "Microfone pronto para nova pergunta.",
-    micError: "Nao consegui captar o audio. Tente novamente.",
-    micAvailable: "Microfone disponível no Chrome/Edge.",
-    voiceBrowserReady: "Voz ativa pelo navegador.",
-    voiceSpeaking: "Paciente falando...",
-    voiceUnavailable: "Síntese de voz indisponível neste navegador.",
+    expectedScript: "Conduza a anamnese com naturalidade. Na história da doença atual, explore ao menos duas dimensões clínicas, como início, localização, evolução, sintomas ou possíveis fatores associados. Perguntas amplas, específicas ou compostas liberam dados do prontuário.",
     score: "Nota",
     diagnosis: "Diagnostico",
     diagnosisHit: "hipotese principal correta",
@@ -166,26 +206,24 @@ const I18N = {
     langCode: "pt-BR"
   },
   en: {
-    tagline: "Intelligent dental anamnesis simulator",
+    tagline: "Intelligent clinical reasoning simulator",
     language: "Language",
-    student: "Student",
-    studentName: "Student name",
-    studentId: "Registration number",
-    studentCollege: "College",
+    student: "Professional",
+    studentName: "Full name",
+    studentId: "Professional registration (optional)",
+    studentCollege: "Institution (optional)",
     clinicalCase: "Clinical case",
     selectCase: "Select clinical case",
     chart: "Chart",
     progress: "Progress",
     physicalExam: "Physical exam",
-    physicalExamLocked: "The physical exam will unlock after the HPI covers when, where, how, and why, plus at least 2 questions in the other stages and most essential data obtained.",
+    physicalExamLocked: "The physical exam will unlock after 3 HPI questions covering at least 2 clinical dimensions, coverage of 3 other history domains, and collection of part of the essential data.",
     physicalExamUnlocked: "Physical clinical exam details unlocked",
     physicalExamUnavailable: "Detailed physical exam is not registered for this case.",
     stageLocked: "Stage recorded outside the expected sequence.",
     virtualOffice: "3D virtual office",
     patient: "Patient",
-    patientVoice: "Patient voice",
     askQuestion: "Ask the patient, for example: how long have you had the sore?",
-    speakQuestion: "Speak question",
     send: "Send",
     anamnesisSequence: "Anamnesis sequence",
     diagnosticHypotheses: "Diagnostic hypotheses",
@@ -203,7 +241,6 @@ const I18N = {
     stageRed: "0/3",
     stageYellow: "in progress",
     stageGreen: "complete",
-    outOfOrder: "out of order",
     currentStage: "current stage",
     questionsShort: "q.",
     dataShort: "data",
@@ -224,16 +261,7 @@ const I18N = {
     notInformed: "not informed",
     collegeMissing: "not informed",
     complaint: "Complaint",
-    expectedScript: "Expected script: history of present illness, family history, medical history, dental history, and habits/dependencies. In HPI, investigate when, where, how, and why; broad or specific questions reveal chart data.",
-    unavailableRecognition: "Speech recognition is unavailable in this browser.",
-    unavailableMic: "Voice microphone is unavailable in this browser.",
-    listening: "Listening to the clinician's question...",
-    micReady: "Microphone ready for a new question.",
-    micError: "I could not capture the audio. Please try again.",
-    micAvailable: "Microphone available in Chrome/Edge.",
-    voiceBrowserReady: "Voice enabled through the browser.",
-    voiceSpeaking: "Patient speaking...",
-    voiceUnavailable: "Speech synthesis is unavailable in this browser.",
+    expectedScript: "Conduct the history naturally. In the HPI, explore at least two clinical dimensions such as onset, location, evolution, symptoms, or associated factors. Broad, specific, and compound questions can reveal chart data.",
     score: "Score",
     diagnosis: "Diagnosis",
     diagnosisHit: "main hypothesis correct",
@@ -256,26 +284,24 @@ const I18N = {
     langCode: "en-US"
   },
   es: {
-    tagline: "Simulador inteligente de anamnesis odontológica",
+    tagline: "Simulador inteligente de razonamiento clínico",
     language: "Idioma",
-    student: "Estudiante",
-    studentName: "Nombre del estudiante",
-    studentId: "Matrícula",
-    studentCollege: "Facultad",
+    student: "Profesional",
+    studentName: "Nombre completo",
+    studentId: "Registro profesional (opcional)",
+    studentCollege: "Institución (opcional)",
     clinicalCase: "Caso clínico",
     selectCase: "Seleccionar caso clínico",
     chart: "Historia clínica",
     progress: "Progreso",
     physicalExam: "Examen físico",
-    physicalExamLocked: "El examen físico se liberará después de cubrir la enfermedad actual con cuándo, dónde, cómo y por qué, además de al menos 2 preguntas en las demás etapas y la mayoría de los datos esenciales obtenidos.",
+    physicalExamLocked: "El examen físico se liberará tras 3 preguntas sobre la enfermedad actual que cubran al menos 2 dimensiones clínicas, 3 bloques adicionales y parte de los datos esenciales.",
     physicalExamUnlocked: "Detalles del examen clínico físico liberados",
     physicalExamUnavailable: "Examen físico detallado no registrado para este caso.",
     stageLocked: "Etapa registrada fuera de la secuencia esperada.",
     virtualOffice: "Consultorio virtual 3D",
     patient: "Paciente",
-    patientVoice: "Voz del paciente",
     askQuestion: "Pregunte al paciente, por ejemplo: ¿desde cuándo tiene la lesión?",
-    speakQuestion: "Hablar pregunta",
     send: "Enviar",
     anamnesisSequence: "Secuencia de anamnesis",
     diagnosticHypotheses: "Hipótesis diagnósticas",
@@ -293,7 +319,6 @@ const I18N = {
     stageRed: "0/3",
     stageYellow: "en progreso",
     stageGreen: "completo",
-    outOfOrder: "fuera de orden",
     currentStage: "etapa actual",
     questionsShort: "preg.",
     dataShort: "datos",
@@ -314,16 +339,7 @@ const I18N = {
     notInformed: "no informado",
     collegeMissing: "no informada",
     complaint: "Queja",
-    expectedScript: "Guion esperado: enfermedad actual, historia familiar, historia médica, historia odontológica y hábitos/dependencias. En enfermedad actual, investigue cuándo, dónde, cómo y por qué; las preguntas amplias o específicas revelan datos de la historia clínica.",
-    unavailableRecognition: "El reconocimiento de voz no está disponible en este navegador.",
-    unavailableMic: "El micrófono por voz no está disponible en este navegador.",
-    listening: "Escuchando la pregunta del profesional...",
-    micReady: "Micrófono listo para una nueva pregunta.",
-    micError: "No pude captar el audio. Inténtelo nuevamente.",
-    micAvailable: "Micrófono disponible en Chrome/Edge.",
-    voiceBrowserReady: "Voz activa mediante el navegador.",
-    voiceSpeaking: "Paciente hablando...",
-    voiceUnavailable: "La síntesis de voz no está disponible en este navegador.",
+    expectedScript: "Conduzca la anamnesis con naturalidad. En la enfermedad actual, explore al menos dos dimensiones clínicas, como inicio, ubicación, evolución, síntomas o factores asociados. Las preguntas amplias, específicas o compuestas revelan datos.",
     score: "Nota",
     diagnosis: "Diagnóstico",
     diagnosisHit: "hipótesis principal correcta",
@@ -351,7 +367,7 @@ const ANAMNESIS_FLOW = [
   {
     id: "currentIllness",
     label: "História da doença atual",
-    keywords: ["historia da doenca", "historia da lesao", "historia do problema", "doenca atual", "problema atual", "queixa atual", "hda", "evolucao", "comecou", "tempo", "dor", "sintoma", "lesao", "ferida", "mancha", "caroco"]
+    keywords: ["historia da doenca", "historia da lesao", "historia do problema", "doenca atual", "problema atual", "queixa atual", "hda", "evolucao", "comecou", "tempo", "dor", "sintoma", "lesao", "ferida", "mancha", "caroco", "me conte", "me fale", "o que aconteceu", "o que esta sentindo", "o que sente", "fale sobre o problema"]
   },
   {
     id: "familyHistory",
@@ -366,7 +382,7 @@ const ANAMNESIS_FLOW = [
   {
     id: "dentalHistory",
     label: "História odontológica",
-    keywords: ["historia odontologica", "dentista", "protese", "canal", "extracao", "restauracao", "tratamento odontologico"]
+    keywords: ["historia odontologica", "dentista", "protese", "canal", "extracao", "restauracao", "tratamento odontologico", "tratamento dentario", "procedimento odontologico", "cirurgia bucal", "implante", "aparelho", "limpeza dentaria", "clareamento", "tratamento de gengiva"]
   },
   {
     id: "habits",
@@ -408,20 +424,25 @@ const FLOW_KEYWORDS = {
     currentIllness: ["history of present illness", "history of the lesion", "history of the problem", "hpi", "current illness", "current problem", "chief complaint", "evolution", "started", "time", "pain", "symptom", "lesion", "sore", "spot", "lump"],
     familyHistory: ["family", "father", "mother", "brother", "sister", "relatives", "hereditary"],
     medicalHistory: ["medical history", "health", "disease", "diabetes", "pressure", "medicine", "medication", "allergy"],
-    dentalHistory: ["dental history", "dentist", "prosthesis", "root canal", "extraction", "restoration", "dental treatment"],
+    dentalHistory: ["dental history", "dentist", "prosthesis", "root canal", "extraction", "restoration", "dental treatment", "dental procedure", "oral surgery", "implant", "braces", "dental cleaning", "whitening", "gum treatment"],
     habits: ["habit", "smoke", "cigarette", "alcohol", "drink", "diet", "work", "sleep", "stress", "dependency"]
   },
   es: {
     currentIllness: ["enfermedad actual", "historia de la lesion", "historia del problema", "problema actual", "motivo actual", "evolucion", "empezo", "tiempo", "dolor", "sintoma", "lesion", "herida", "mancha", "bulto"],
     familyHistory: ["familia", "familiar", "padre", "madre", "hermano", "hermana", "parientes", "hereditario"],
     medicalHistory: ["historia medica", "salud", "enfermedad", "diabetes", "presion", "remedio", "medicamento", "alergia"],
-    dentalHistory: ["historia odontologica", "dentista", "protesis", "conducto", "extraccion", "restauracion", "tratamiento dental"],
+    dentalHistory: ["historia odontologica", "dentista", "protesis", "conducto", "extraccion", "restauracion", "tratamiento dental", "procedimiento dental", "cirugia oral", "implante", "aparato", "limpieza dental", "blanqueamiento", "tratamiento de encia"],
     habits: ["habito", "fuma", "cigarrillo", "alcohol", "bebida", "dieta", "trabajo", "sueno", "estres", "dependencia"]
   }
 };
 
-const MIN_STRUCTURED_QUESTIONS_PER_STAGE = 2;
+const MIN_STRUCTURED_QUESTIONS_PER_STAGE = 1;
 const HDA_REQUIRED_AXES = ["when", "where", "how", "why"];
+const MIN_HDA_AXES_FOR_EXAM = 2;
+const MIN_HDA_QUESTIONS_FOR_EXAM = 3;
+const MIN_OTHER_DOMAINS_FOR_EXAM = 3;
+const MIN_REQUIRED_DATA_RATIO_FOR_EXAM = 0.45;
+const MIN_TOTAL_QUESTIONS_FALLBACK = 8;
 const HDA_AXIS_LABELS = {
   when: { pt: "quando", en: "when", es: "cuándo" },
   where: { pt: "onde", en: "where", es: "dónde" },
@@ -1794,8 +1815,6 @@ function renderStaticText() {
   els.caseSelect.setAttribute("aria-label", t("selectCase"));
   els.questionInput.placeholder = t("askQuestion");
   els.questionInput.setAttribute("aria-label", t("askQuestion"));
-  els.micBtn.setAttribute("aria-label", t("speakQuestion"));
-  els.voiceStatus.textContent = state.recognition ? t("micAvailable") : t("unavailableMic");
 }
 
 function rerenderLanguageDependentViews({ resetConversation = false } = {}) {
@@ -1817,9 +1836,15 @@ function rerenderLanguageDependentViews({ resetConversation = false } = {}) {
 }
 
 async function boot() {
-  const response = await fetch("data/cases.json");
+  const [response, lesionImageResponse] = await Promise.all([
+    fetch("data/cases.json"),
+    fetch("data/lesion-images.json")
+  ]);
   state.cases = await response.json();
+  state.lesionImageLibrary = lesionImageResponse.ok ? await lesionImageResponse.json() : {};
+  if (!sessionStorage.getItem("examosim.session")) restoreProfessionalProfile();
   renderStaticText();
+  renderDashboard();
   renderCaseOptions();
   loadCase(state.cases[0].id);
 }
@@ -1843,7 +1868,6 @@ function loadCase(caseId) {
   state.selectedActions = new Set();
   state.transcript = [];
   state.flowEvents = [];
-  state.outOfOrderEvents = [];
   state.structuredQuestions = {};
   state.structuredQuestionTotals = {};
   state.hdaQuestionAxes = new Set();
@@ -1851,8 +1875,18 @@ function loadCase(caseId) {
   state.pendingAnamnesisUpdate = null;
   state.pendingClinicalDatum = null;
   state.physicalExamUnlocked = false;
+  state.consultationPhase = "anamnesis";
+  state.unlockedPhases = new Set(["anamnesis"]);
+  state.selectedPhysicalExams = new Set();
+  state.revealedExamFindings = [];
+  state.clinicalImageRevealed = false;
+  state.clinicalImageIndex = 0;
+  state.diagnosisOrder = [];
+  state.startedAt = Date.now();
   if (els.osceStatus) els.osceStatus.textContent = "";
   if (els.osceNotes) els.osceNotes.value = "";
+  if (els.diagnosisJustification) els.diagnosisJustification.value = "";
+  if (els.urgencySelect) els.urgencySelect.value = "";
   els.report.innerHTML = "";
   els.patientName.textContent = localizedPatient(state.currentCase.patient);
   els.difficultyBadge.textContent = `${t("difficulty")} ${clinicalText(state.currentCase.difficulty)}`;
@@ -1864,6 +1898,9 @@ function loadCase(caseId) {
   renderFlow();
   renderChoices();
   renderPhysicalExam();
+  renderClinicalImage();
+  renderPhaseUI();
+  renderDashboard();
   resetChat();
 }
 
@@ -1881,6 +1918,8 @@ function renderChart() {
   const domainReports = domainCoverageReports();
   const rows = [
     [t("student"), state.student.name || t("studentMissing")],
+    ["Profissão", state.student.profession || t("notInformed")],
+    ["Local de atuação", state.student.city ? `${state.student.city}/${state.student.stateRegion || "—"}` : t("notInformed")],
     [t("studentId"), state.student.id || t("notInformed")],
     [t("studentCollege"), state.student.college || t("collegeMissing")],
     [t("patient"), localizedPatient(state.currentCase.patient)],
@@ -1901,17 +1940,14 @@ function renderFlow() {
   els.flowList.innerHTML = ANAMNESIS_FLOW.map((step, index) => {
     const domain = domainCoverageReport(step.id);
     const level = domain.coverage >= 80 ? "green" : domain.coverage > 0 ? "yellow" : "red";
-    const hasSequenceJump = state.outOfOrderEvents.some((event) => event.groupId === step.id);
     const status = currentStage === step.id
       ? t("currentStage")
-      : hasSequenceJump
-        ? t("outOfOrder")
-        : level === "green"
+      : level === "green"
           ? t("stageGreen")
           : level === "yellow"
             ? t("stageYellow")
             : t("pending");
-    const classes = [level, currentStage === step.id ? "current" : "", hasSequenceJump ? "sequence-warning" : ""].filter(Boolean).join(" ");
+    const classes = [level, currentStage === step.id ? "current" : ""].filter(Boolean).join(" ");
     return `
       <div class="flow-step ${classes}">
         <div class="flow-step-main">
@@ -2004,47 +2040,74 @@ function coverageStatus(coverage) {
 
 function renderPhysicalExam() {
   updatePhysicalExamUnlock();
-  if (!state.physicalExamUnlocked) {
+  els.proceedExamBtn.disabled = !state.physicalExamUnlocked;
+  els.proceedExamBtn.textContent = state.physicalExamUnlocked
+    ? "Prosseguir para exame físico"
+    : examUnlockProgressText();
+
+  if (!state.unlockedPhases.has("physicalExam")) {
+    els.completeExamBtn.disabled = true;
     els.physicalExamBox.className = "physical-exam-box locked";
     els.physicalExamBox.textContent = t("physicalExamLocked");
+    els.physicalExamOptions.innerHTML = "";
     return;
   }
 
-  const exam = state.currentCase.physicalExam;
-  const findings = exam?.findings?.length ? exam.findings : [];
+  renderPhysicalExamOptions();
   els.physicalExamBox.className = "physical-exam-box";
-
-  if (!findings.length && !exam?.summary) {
-    els.physicalExamBox.textContent = t("physicalExamUnavailable");
-    return;
-  }
-
-  const items = findings.length
-    ? findings.map((finding) => `<li>${clinicalText(finding)}</li>`).join("")
-    : `<li>${clinicalText(exam.summary)}</li>`;
-  els.physicalExamBox.innerHTML = `<strong>${t("physicalExamUnlocked")}</strong><ul>${items}</ul>`;
+  els.completeExamBtn.disabled = state.selectedPhysicalExams.size === 0;
+  els.physicalExamBox.innerHTML = state.revealedExamFindings.length
+    ? `<strong>Achados obtidos</strong><ul>${state.revealedExamFindings.map((finding) => `<li>${clinicalText(finding)}</li>`).join("")}</ul>`
+    : "Selecione uma avaliação para obter os achados do paciente.";
 }
 
 function updatePhysicalExamUnlock() {
   if (state.physicalExamUnlocked || !state.currentCase) return;
   const required = Object.entries(state.currentCase.hiddenData).filter(([, item]) => item.required);
   const revealedRequired = required.filter(([key]) => state.revealed.has(key)).length;
-  const majorityReached = required.length ? revealedRequired / required.length >= 0.7 : false;
-  const expected = state.currentCase.anamnesisOrder || ANAMNESIS_FLOW.map((step) => step.id);
+  const essentialDataReached = required.length
+    ? revealedRequired / required.length >= MIN_REQUIRED_DATA_RATIO_FOR_EXAM
+    : structuredQuestionCount("currentIllness") >= MIN_HDA_QUESTIONS_FOR_EXAM;
   const unique = getUniqueFlowEvents();
-  const completedPath = expected.every((id) => unique.includes(id));
-  const stageDepthReached = expected.every((id) => hasRequiredStructuredDepth(id));
-  state.physicalExamUnlocked = majorityReached && completedPath && stageDepthReached;
+  const otherDomainsCovered = ANAMNESIS_FLOW
+    .filter((step) => step.id !== "currentIllness")
+    .filter((step) => unique.includes(step.id) || structuredQuestionCount(step.id) > 0)
+    .length;
+  const hdaReady = hasRequiredStructuredDepth("currentIllness");
+  const totalQuestions = state.transcript.filter((entry) => entry.kind === "student").length;
+  const dataOrEffortReached = essentialDataReached || totalQuestions >= MIN_TOTAL_QUESTIONS_FALLBACK;
+  state.physicalExamUnlocked = hdaReady && otherDomainsCovered >= MIN_OTHER_DOMAINS_FOR_EXAM && dataOrEffortReached;
+}
+
+function examUnlockProgressText() {
+  const hdaQuestions = Math.min(structuredQuestionCount("currentIllness"), MIN_HDA_QUESTIONS_FOR_EXAM);
+  const hdaAxes = Math.min(state.hdaQuestionAxes.size, MIN_HDA_AXES_FOR_EXAM);
+  const unique = getUniqueFlowEvents();
+  const domains = ANAMNESIS_FLOW
+    .filter((step) => step.id !== "currentIllness")
+    .filter((step) => unique.includes(step.id) || structuredQuestionCount(step.id) > 0)
+    .length;
+  return `Para avançar: HDA ${hdaQuestions}/${MIN_HDA_QUESTIONS_FOR_EXAM} perguntas · ${hdaAxes}/${MIN_HDA_AXES_FOR_EXAM} dimensões · blocos ${Math.min(domains, MIN_OTHER_DOMAINS_FOR_EXAM)}/${MIN_OTHER_DOMAINS_FOR_EXAM}`;
 }
 
 function renderChoices() {
-  els.hypothesisList.innerHTML = state.currentCase.differentials
-    .map((hypothesis) => choiceTemplate("hypothesis", hypothesis, state.selectedHypotheses.has(hypothesis)))
-    .join("");
+  const diagnosisUnlocked = state.unlockedPhases.has("diagnosis");
+  els.hypothesisList.innerHTML = diagnosisUnlocked
+    ? state.currentCase.differentials
+      .map((hypothesis) => choiceTemplate("hypothesis", hypothesis, state.selectedHypotheses.has(hypothesis)))
+      .join("")
+    : lockedPhaseMessage("Conclua o exame físico para formular hipóteses.");
 
-  els.actionList.innerHTML = state.currentCase.actions
-    .map((action) => choiceTemplate("action", action, state.selectedActions.has(action)))
-    .join("");
+  const exams = state.currentCase.actions.filter(isComplementaryExamAction);
+  const conduct = state.currentCase.actions.filter((action) => !isPhysicalExamAction(action) && !isComplementaryExamAction(action));
+  els.actionList.innerHTML = state.unlockedPhases.has("complementaryExams")
+    ? (exams.length ? exams : ["Nenhum exame complementar específico cadastrado para este caso"])
+      .map((action) => action.startsWith("Nenhum") ? `<p class="empty-state">${action}.</p>` : choiceTemplate("action", action, state.selectedActions.has(action)))
+      .join("")
+    : lockedPhaseMessage("Defina e justifique suas hipóteses primeiro.");
+  els.conductList.innerHTML = state.unlockedPhases.has("conduct")
+    ? conduct.map((action) => choiceTemplate("action", action, state.selectedActions.has(action))).join("")
+    : lockedPhaseMessage("Conclua a etapa de exames complementares.");
 
   document.querySelectorAll("[data-kind='hypothesis']").forEach((input) => {
     input.addEventListener("change", () => toggleChoice(input, state.selectedHypotheses));
@@ -2053,12 +2116,15 @@ function renderChoices() {
   document.querySelectorAll("[data-kind='action']").forEach((input) => {
     input.addEventListener("change", () => toggleChoice(input, state.selectedActions));
   });
+  renderExamResults();
 }
 
 function choiceTemplate(kind, value, checked = false) {
+  const order = kind === "hypothesis" ? state.diagnosisOrder.indexOf(value) + 1 : 0;
   return `
     <label class="choice">
       <input type="checkbox" data-kind="${kind}" value="${value}" ${checked ? "checked" : ""} />
+      ${kind === "hypothesis" ? `<b class="choice-order">${order || "–"}</b>` : ""}
       <span>${clinicalText(value)}</span>
     </label>
   `;
@@ -2066,10 +2132,128 @@ function choiceTemplate(kind, value, checked = false) {
 
 function toggleChoice(input, targetSet) {
   if (input.checked) {
+    if (input.dataset.kind === "hypothesis" && targetSet.size >= 5) {
+      input.checked = false;
+      setOsceStatus("Selecione no máximo cinco hipóteses diagnósticas.");
+      return;
+    }
     targetSet.add(input.value);
+    if (input.dataset.kind === "hypothesis") state.diagnosisOrder.push(input.value);
   } else {
     targetSet.delete(input.value);
+    if (input.dataset.kind === "hypothesis") {
+      state.diagnosisOrder = state.diagnosisOrder.filter((item) => item !== input.value);
+    }
   }
+  renderChoices();
+  renderExamResults();
+}
+
+function lockedPhaseMessage(message) {
+  return `<p class="locked-message">${message}</p>`;
+}
+
+function isPhysicalExamAction(action) {
+  const text = normalize(action);
+  return ["exame intraoral", "exame fisico", "palpacao", "inspecao", "ausculta", "percussao", "teste de remocao", "avaliar higiene", "avaliar se"].some((term) => text.includes(term));
+}
+
+function isComplementaryExamAction(action) {
+  const text = normalize(action);
+  return ["biops", "citologia", "punção", "puncao", "paaf", "hemograma", "sorologia", "cultura", "histopat", "radiograf", "tomograf", "ressonancia", "ultrass", "pet/ct", "investigar diabetes", "exame complementar"].some((term) => text.includes(normalize(term)));
+}
+
+function physicalExamChoices() {
+  const general = ["Estado geral", "Sinais vitais", "Pele", "Cabeça e pescoço", "Linfonodos", "Boca e orofaringe", "Cardiovascular", "Respiratório", "Abdome", "Musculoesquelético", "Neurológico"];
+  const caseSpecific = state.currentCase.actions.filter(isPhysicalExamAction).map(clinicalText);
+  return Array.from(new Set([...caseSpecific, ...general]));
+}
+
+function renderPhysicalExamOptions() {
+  els.physicalExamOptions.innerHTML = physicalExamChoices().map((option) => `
+    <button type="button" class="exam-option ${state.selectedPhysicalExams.has(option) ? "selected" : ""}" data-exam-option="${option}">
+      ${state.selectedPhysicalExams.has(option) ? "✓ " : "+ "}${option}
+    </button>
+  `).join("");
+  els.physicalExamOptions.querySelectorAll("[data-exam-option]").forEach((button) => {
+    button.addEventListener("click", () => performPhysicalExam(button.dataset.examOption));
+  });
+}
+
+function performPhysicalExam(option) {
+  if (state.selectedPhysicalExams.has(option)) return;
+  state.selectedPhysicalExams.add(option);
+  const rawAction = state.currentCase.actions.find((action) => clinicalText(action) === option);
+  if (rawAction) state.selectedActions.add(rawAction);
+  const findings = physicalFindingsFor(option);
+  findings.forEach((finding) => {
+    if (!state.revealedExamFindings.includes(finding)) state.revealedExamFindings.push(finding);
+  });
+  if (isClinicalInspectionOption(option) && clinicalImagesForCurrentCase().length) {
+    state.clinicalImageRevealed = true;
+  }
+  renderPhysicalExam();
+  renderClinicalImage();
+}
+
+function isClinicalInspectionOption(option) {
+  const text = normalize(option);
+  return ["intraoral", "boca", "orofaringe", "labio", "lingua", "palato", "mucosa", "inspecao", "avaliar higiene", "avaliar se"].some((token) => text.includes(token));
+}
+
+function clinicalImagesForCurrentCase() {
+  return state.lesionImageLibrary[state.currentCase?.diagnosis]?.images || [];
+}
+
+function renderClinicalImage() {
+  const images = clinicalImagesForCurrentCase();
+  if (!state.clinicalImageRevealed || !images.length) {
+    els.clinicalImagePanel.hidden = true;
+    els.clinicalImage.removeAttribute("src");
+    return;
+  }
+  state.clinicalImageIndex %= images.length;
+  const item = images[state.clinicalImageIndex];
+  els.clinicalImagePanel.hidden = false;
+  els.clinicalImage.src = item.src;
+  els.clinicalImage.alt = "Imagem clínica liberada após inspeção da região";
+  els.clinicalImageTitle.textContent = "Inspeção clínica da região";
+  els.clinicalImageCaption.textContent = "Observe localização, cor, superfície, limites, distribuição e demais características semiológicas.";
+  els.clinicalImageSource.textContent = `Fonte educacional: Diagnóstico Diferencial de Lesões Bucais na Clínica Odontológica, p. ${item.page}.`;
+  els.nextClinicalImageBtn.hidden = images.length < 2;
+  els.nextClinicalImageBtn.textContent = `Próxima imagem (${state.clinicalImageIndex + 1}/${images.length})`;
+}
+
+els.nextClinicalImageBtn.addEventListener("click", () => {
+  const images = clinicalImagesForCurrentCase();
+  if (!images.length) return;
+  state.clinicalImageIndex = (state.clinicalImageIndex + 1) % images.length;
+  renderClinicalImage();
+});
+
+function physicalFindingsFor(option) {
+  const text = normalize(option);
+  const exam = state.currentCase.physicalExam;
+  if (exam?.findings?.length) {
+    if (text.includes("sinais vitais")) return ["Sinais vitais sem valores estruturados cadastrados neste caso."];
+    const chunkSize = Math.max(1, Math.ceil(exam.findings.length / 4));
+    const start = Math.min(state.revealedExamFindings.length, Math.max(0, exam.findings.length - chunkSize));
+    return exam.findings.slice(start, start + chunkSize);
+  }
+  const matchingData = Object.entries(state.currentCase.hiddenData)
+    .filter(([key, item]) => [key, item.label, item.category].some((value) => text.includes(normalize(value || "")) || normalize(value || "").includes(text)))
+    .map(([, item]) => item.value);
+  if (matchingData.length) return matchingData;
+  if (text.includes("sinais vitais")) return ["Sinais vitais sem alterações relevantes cadastradas neste caso."];
+  return [`${option}: sem achados adicionais estruturados no roteiro deste caso.`];
+}
+
+function renderExamResults() {
+  if (!els.examResults) return;
+  const selectedExams = Array.from(state.selectedActions).filter(isComplementaryExamAction);
+  els.examResults.innerHTML = selectedExams.length
+    ? `<strong>Solicitações registradas</strong>${selectedExams.map((exam) => `<p><span>✓</span> ${clinicalText(exam)} — resultado específico ainda não estruturado no banco deste caso.</p>`).join("")}`
+    : "";
 }
 
 function resetChat() {
@@ -2088,10 +2272,6 @@ function addMessage(kind, text) {
   els.chatLog.appendChild(message);
   els.chatLog.scrollTop = els.chatLog.scrollHeight;
   state.transcript.push({ kind, text });
-
-  if (kind === "patient") {
-    speakPatient(text);
-  }
 }
 
 els.chatForm.addEventListener("submit", (event) => {
@@ -2194,7 +2374,7 @@ function answerQuestion(question) {
 function answerContextualQuestion(normalizedQuestion) {
   if (isPreviousSimilarLesionQuestion(normalizedQuestion)) {
     if (!canAccessStage("currentIllness")) return stageLockedAnswer();
-    recordFlowStep("currentIllness", { suppressOutOfOrder: true });
+    recordFlowStep("currentIllness");
     registerStructuredQuestion("currentIllness", "previousSimilarLesion", normalizedQuestion);
     const frequency = state.currentCase.hiddenData.frequency;
     if (frequency) return revealHiddenData(["frequency", frequency], normalizedQuestion);
@@ -2203,7 +2383,7 @@ function answerContextualQuestion(normalizedQuestion) {
 
   if (isTriggerEventQuestion(normalizedQuestion)) {
     if (!canAccessStage("currentIllness")) return stageLockedAnswer();
-    recordFlowStep("currentIllness", { suppressOutOfOrder: true });
+    recordFlowStep("currentIllness");
     registerStructuredQuestion("currentIllness", "triggerEvent", normalizedQuestion);
     const trauma = state.currentCase.hiddenData.trauma;
     if (trauma?.group === "currentIllness") {
@@ -2218,6 +2398,20 @@ function answerContextualQuestion(normalizedQuestion) {
     registerStructuredQuestion("dentalHistory", "previousCare", normalizedQuestion);
     revealIfExists("dentalGeneral", { countQuestion: false });
     return previousCareAnswer();
+  }
+
+  if (isDentalTreatmentHistoryQuestion(normalizedQuestion)) {
+    recordFlowStep("dentalHistory");
+    const dentalIntentKey = detectSpecificClinicalIntent(normalizedQuestion);
+    const specificDentalKey = dentalIntentKey && state.currentCase.hiddenData[dentalIntentKey]?.group === "dentalHistory"
+      ? dentalIntentKey
+      : "";
+    const dentalKey = specificDentalKey || ["dentalGeneral", "prosthesis", "trauma", "hygiene"]
+      .find((key) => state.currentCase.hiddenData[key] && !state.revealed.has(key)) ||
+      ["dentalGeneral", "prosthesis", "trauma", "hygiene"].find((key) => state.currentCase.hiddenData[key]);
+    if (dentalKey) return revealHiddenData([dentalKey, state.currentCase.hiddenData[dentalKey]], normalizedQuestion);
+    registerStructuredQuestion("dentalHistory", `dentalTreatment:${hashText(normalizedQuestion)}`, normalizedQuestion);
+    return dentalTreatmentHistoryAnswer();
   }
 
   if (isPreviousTreatmentQuestion(normalizedQuestion)) {
@@ -2319,7 +2513,7 @@ function canAccessStage(groupId) {
 }
 
 function requiredStructuredQuestions(groupId) {
-  if (groupId === "currentIllness") return HDA_REQUIRED_AXES.length;
+  if (groupId === "currentIllness") return MIN_HDA_QUESTIONS_FOR_EXAM;
   return MIN_STRUCTURED_QUESTIONS_PER_STAGE;
 }
 
@@ -2330,11 +2524,11 @@ function currentExpectedStage() {
 
 function hasRequiredStructuredDepth(groupId) {
   if (groupId === "currentIllness") {
-    return HDA_REQUIRED_AXES.every((axis) => state.hdaQuestionAxes.has(axis));
+    return state.hdaQuestionAxes.size >= MIN_HDA_AXES_FOR_EXAM && structuredQuestionCount(groupId) >= MIN_HDA_QUESTIONS_FOR_EXAM;
   }
   const requiredEntries = orderedGroupEntries(groupId).filter(([, item]) => item.required);
   if (requiredEntries.length) {
-    return requiredEntries.every(([key]) => state.revealed.has(key));
+    return requiredEntries.some(([key]) => state.revealed.has(key));
   }
   return structuredQuestionCount(groupId) >= requiredStructuredQuestions(groupId);
 }
@@ -2359,10 +2553,10 @@ function registerStructuredQuestion(groupId, key, normalizedQuestion = "") {
 
 function registerHdaQuestionAxis(groupId, key, normalizedQuestion = "") {
   if (groupId !== "currentIllness") return;
-  const axisFromQuestion = normalizedQuestion ? detectHdaQuestionAxis(normalizedQuestion) : "";
-  const axis = axisFromQuestion || HDA_AXIS_BY_INTENT[key] || (String(key).startsWith("hdaAxis:") ? key.split(":")[1] : "");
-  if (!axis || !HDA_REQUIRED_AXES.includes(axis)) return;
-  state.hdaQuestionAxes.add(axis);
+  const axesFromQuestion = normalizedQuestion ? detectAllHdaQuestionAxes(normalizedQuestion) : [];
+  const intentAxis = HDA_AXIS_BY_INTENT[key] || (String(key).startsWith("hdaAxis:") ? key.split(":")[1] : "");
+  const axes = new Set([...axesFromQuestion, intentAxis].filter((axis) => HDA_REQUIRED_AXES.includes(axis)));
+  axes.forEach((axis) => state.hdaQuestionAxes.add(axis));
 }
 
 function stageLockedAnswer() {
@@ -2407,6 +2601,32 @@ function isPreviousCareQuestion(normalizedQuestion) {
   ];
 
   return careTokens.some((token) => normalizedQuestion.includes(normalize(token)));
+}
+
+function isDentalTreatmentHistoryQuestion(normalizedQuestion) {
+  const specificProcedures = [
+    "tratamento odontologico", "tratamento dentario", "procedimento odontologico", "tratou os dentes",
+    "tratamento de canal", "fez canal", "extracao", "extraiu", "arrancou dente", "restauracao", "obturacao",
+    "implante", "protese", "dentadura", "aparelho", "ortodont", "cirurgia bucal", "cirurgia oral",
+    "limpeza dentaria", "raspagem", "tratamento periodontal", "tratamento de gengiva", "clareamento",
+    "dental treatment", "dental procedure", "root canal", "tooth extraction", "filling", "dental implant",
+    "denture", "braces", "oral surgery", "dental cleaning", "periodontal treatment", "whitening",
+    "tratamiento dental", "procedimiento dental", "conducto", "extraccion", "empaste", "implante dental",
+    "protesis", "aparato dental", "cirugia oral", "limpieza dental", "tratamiento periodontal", "blanqueamiento"
+  ];
+  if (specificProcedures.some((token) => normalizedQuestion.includes(normalize(token)))) return true;
+
+  const treatmentFrame = ["ja fez", "já fez", "realizou", "passou por", "recebeu", "teve algum", "algum tratamento", "algum procedimento", "have you had", "ever had", "underwent", "any treatment", "any procedure", "se hizo", "realizo", "realizó", "recibio", "recibió", "algun tratamiento", "algún tratamiento"].some((token) => normalizedQuestion.includes(normalize(token)));
+  const dentalContext = ["dente", "dentes", "boca", "odontolog", "dentario", "dentário", "dentista", "gengiva", "oral", "tooth", "teeth", "dental", "dentist", "gum", "diente", "dientes", "bucal", "encia", "encía"].some((token) => normalizedQuestion.includes(normalize(token)));
+  return treatmentFrame && dentalContext;
+}
+
+function dentalTreatmentHistoryAnswer() {
+  return {
+    pt: "Não me lembro de nenhum tratamento odontológico importante além do que já contei.",
+    en: "I do not remember any important dental treatment beyond what I have already mentioned.",
+    es: "No recuerdo ningún tratamiento odontológico importante además de lo que ya conté."
+  }[state.language];
 }
 
 function isPreviousTreatmentQuestion(normalizedQuestion) {
@@ -2602,7 +2822,7 @@ function answerHdaAxisQuestion(normalizedQuestion) {
     return revealHiddenData([preferredKey, state.currentCase.hiddenData[preferredKey]], normalizedQuestion);
   }
 
-  recordFlowStep("currentIllness", { suppressOutOfOrder: true });
+  recordFlowStep("currentIllness");
   registerStructuredQuestion("currentIllness", `hdaAxis:${axis}`, normalizedQuestion);
   if (axis === "why") return triggerEventAnswer();
   return naturalNoDataAnswer("hda");
@@ -2675,6 +2895,19 @@ function detectHdaQuestionAxis(normalizedQuestion) {
     return match.axis;
   }
   return "";
+}
+
+function detectAllHdaQuestionAxes(normalizedQuestion) {
+  if (isGreetingQuestion(normalizedQuestion)) return [];
+  const patterns = {
+    when: ["quando", "desde quando", "ha quanto", "há quanto", "quanto tempo", "comecou", "começou", "inicio", "início", "when", "how long", "since when", "started", "cuando", "cuándo", "desde cuando", "desde cuándo", "cuanto tiempo", "cuánto tiempo", "empezo", "empezó"],
+    where: ["onde", "local", "lugar", "regiao", "região", "parte", "where", "location", "site", "area", "donde", "dónde", "ubicacion", "ubicación", "sitio", "zona"],
+    how: ["como", "aparencia", "aparência", "aspecto", "evolucao", "evolução", "mudou", "cresceu", "aumentou", "diminuiu", "sintoma", "dor", "incomoda", "how", "appearance", "look", "evolution", "changed", "grew", "symptom", "pain", "cómo", "aspecto", "evolucion", "evolución", "cambio", "crecio", "creció", "sintoma", "síntoma", "dolor"],
+    why: ["por que", "por quê", "porque apareceu", "porque surgiu", "motivo", "causa", "gatilho", "desencadeou", "associado", "relacionado", "depois de", "why", "cause", "trigger", "because", "associated", "related", "por qué", "gatillo", "desencadeno", "asociado", "relacionado"]
+  };
+  return HDA_REQUIRED_AXES.filter((axis) =>
+    patterns[axis].some((token) => normalizedQuestion.includes(normalize(token)))
+  );
 }
 
 function isGreetingQuestion(normalizedQuestion) {
@@ -3181,8 +3414,7 @@ const CLINICAL_INTENT_RULES = [
 function revealHiddenData(matched, normalizedQuestion) {
   const [key, item] = matched;
   const groupId = item.group || detectAnamnesisGroup(normalizedQuestion);
-  const isHdaAxisQuestion = groupId === "currentIllness" && Boolean(detectHdaQuestionAxis(normalizedQuestion));
-  recordFlowStep(groupId, { suppressOutOfOrder: isHdaAxisQuestion });
+  recordFlowStep(groupId);
   const askedCount = state.askedIntents.get(key) || 0;
   state.askedIntents.set(key, askedCount + 1);
   registerStructuredQuestion(groupId, key, normalizedQuestion);
@@ -3250,16 +3482,8 @@ function detectAnamnesisGroup(normalizedQuestion) {
   return step?.id || null;
 }
 
-function recordFlowStep(groupId, options = {}) {
+function recordFlowStep(groupId) {
   if (!groupId || !FLOW_TRANSLATIONS[groupId]) return;
-  const expectedStage = currentExpectedStage();
-  if (!options.suppressOutOfOrder && expectedStage && groupId !== expectedStage) {
-    state.outOfOrderEvents.push({
-      groupId,
-      expectedStage,
-      questionNumber: state.transcript.filter((entry) => entry.kind === "student").length
-    });
-  }
   state.flowEvents.push(groupId);
   renderFlow();
 }
@@ -3557,7 +3781,95 @@ function getAgeClass(age) {
   return "older";
 }
 
+const CONSULTATION_PHASES = ["anamnesis", "physicalExam", "diagnosis", "complementaryExams", "conduct"];
+
+function unlockPhase(phase) {
+  state.unlockedPhases.add(phase);
+  state.consultationPhase = phase;
+  renderPhaseUI();
+  renderChoices();
+  renderPhysicalExam();
+  const section = document.querySelector(`[data-phase-section="${phase}"]`) || {
+    physicalExam: els.physicalExamSection,
+    diagnosis: document.querySelector("#diagnosisSection"),
+    complementaryExams: document.querySelector("#examsSection"),
+    conduct: document.querySelector("#conductSection")
+  }[phase];
+  section?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function renderPhaseUI() {
+  const currentIndex = CONSULTATION_PHASES.indexOf(state.consultationPhase);
+  const sections = {
+    anamnesis: document.querySelector("#anamnesisSection"),
+    physicalExam: document.querySelector("#physicalExamSection"),
+    diagnosis: document.querySelector("#diagnosisSection"),
+    complementaryExams: document.querySelector("#examsSection"),
+    conduct: document.querySelector("#conductSection")
+  };
+  CONSULTATION_PHASES.forEach((phase, index) => {
+    const unlocked = state.unlockedPhases.has(phase);
+    const navButton = els.phaseNav?.querySelector(`[data-phase="${phase}"]`);
+    if (navButton) {
+      navButton.disabled = !unlocked;
+      navButton.classList.toggle("active", phase === state.consultationPhase);
+      navButton.classList.toggle("completed", index < currentIndex);
+    }
+    sections[phase]?.classList.toggle("locked", !unlocked);
+  });
+  const inAnamnesis = state.consultationPhase === "anamnesis";
+  els.questionInput.disabled = !inAnamnesis;
+  els.chatForm.querySelector("button").disabled = !inAnamnesis;
+  if (!inAnamnesis) {
+    els.questionInput.placeholder = "Anamnese encerrada. Continue pelas etapas clínicas à direita.";
+  } else {
+    els.questionInput.placeholder = t("askQuestion");
+  }
+  els.finishBtn.disabled = !state.unlockedPhases.has("conduct");
+}
+
+els.proceedExamBtn.addEventListener("click", () => {
+  if (!state.physicalExamUnlocked) return;
+  addMessage("system", "Anamnese encerrada. Inicie o exame físico escolhendo regiões e técnicas de avaliação.");
+  unlockPhase("physicalExam");
+});
+
+els.completeExamBtn.addEventListener("click", () => {
+  if (!state.selectedPhysicalExams.size) return;
+  unlockPhase("diagnosis");
+  addMessage("system", "Exame físico concluído. Formule até cinco hipóteses em ordem de probabilidade.");
+});
+
+els.proceedExamsBtn.addEventListener("click", () => {
+  const justification = els.diagnosisJustification.value.trim();
+  if (!state.selectedHypotheses.size || justification.length < 20) {
+    setOsceStatus("Selecione ao menos uma hipótese e apresente uma justificativa clínica com 20 caracteres ou mais.");
+    return;
+  }
+  unlockPhase("complementaryExams");
+});
+
+els.proceedConductBtn.addEventListener("click", () => unlockPhase("conduct"));
+
+els.phaseNav?.querySelectorAll("[data-phase]").forEach((button) => {
+  button.addEventListener("click", () => {
+    if (!state.unlockedPhases.has(button.dataset.phase)) return;
+    const target = {
+      anamnesis: document.querySelector("#anamnesisSection"),
+      physicalExam: document.querySelector("#physicalExamSection"),
+      diagnosis: document.querySelector("#diagnosisSection"),
+      complementaryExams: document.querySelector("#examsSection"),
+      conduct: document.querySelector("#conductSection")
+    }[button.dataset.phase];
+    target?.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+});
+
 els.finishBtn.addEventListener("click", () => {
+  if (!state.unlockedPhases.has("conduct")) {
+    setOsceStatus("Conclua as etapas clínicas antes de finalizar o caso.");
+    return;
+  }
   const report = evaluateCase();
   state.lastReport = report;
   renderReport(report);
@@ -3568,6 +3880,9 @@ function evaluateCase() {
   const caseItem = state.currentCase;
   const criticalFound = caseItem.criticalQuestions.filter((key) => state.revealed.has(key));
   const correctActions = caseItem.criticalActions.filter((action) => state.selectedActions.has(action));
+  const criticalPhysical = caseItem.criticalActions.filter(isPhysicalExamAction);
+  const criticalExams = caseItem.criticalActions.filter(isComplementaryExamAction);
+  const criticalConduct = caseItem.criticalActions.filter((action) => !isPhysicalExamAction(action) && !isComplementaryExamAction(action));
   const unsafeActions = Array.from(state.selectedActions).filter(
     (action) =>
       action.includes("sem investigacao") ||
@@ -3575,19 +3890,28 @@ function evaluateCase() {
       action.includes("clareamento")
   );
   const diagnosisHit = state.selectedHypotheses.has(caseItem.diagnosis);
+  const diagnosisRank = state.diagnosisOrder.indexOf(caseItem.diagnosis);
   const sequenceReport = evaluateSequence();
   const domainReports = domainCoverageReports();
   const domainAverage = domainReports.length
     ? Math.round(domainReports.reduce((total, domain) => total + domain.coverage, 0) / domainReports.length)
     : 0;
 
-  let score = 0;
-  score += Math.round(domainAverage * 0.35);
-  score += diagnosisHit ? 25 : 0;
-  score += Math.round((correctActions.length / caseItem.criticalActions.length) * 20);
-  score += sequenceReport.score;
-  score += Math.min(state.transcript.filter((entry) => entry.kind === "student").length, 5) * 2;
-  score -= unsafeActions.length * 12;
+  const physicalCorrect = criticalPhysical.filter((action) => state.selectedActions.has(action)).length;
+  const examsCorrect = criticalExams.filter((action) => state.selectedActions.has(action)).length;
+  const conductCorrect = criticalConduct.filter((action) => state.selectedActions.has(action)).length;
+  const physicalScore = criticalPhysical.length
+    ? Math.round((physicalCorrect / criticalPhysical.length) * 15)
+    : Math.min(state.selectedPhysicalExams.size * 3, 15);
+  const examScore = criticalExams.length ? Math.round((examsCorrect / criticalExams.length) * 15) : 15;
+  const conductScore = criticalConduct.length ? Math.round((conductCorrect / criticalConduct.length) * 15) : 15;
+  const justificationLength = els.diagnosisJustification?.value.trim().length || 0;
+  const diagnosisScore = (diagnosisHit ? 14 : 0) + (diagnosisRank === 0 ? 3 : diagnosisRank > 0 ? 1 : 0) + (justificationLength >= 60 ? 3 : justificationLength >= 20 ? 2 : 0);
+  const anamnesisScore = Math.round(domainAverage * 0.3);
+  const sequenceScore = Math.round(sequenceReport.score / 2);
+
+  let score = anamnesisScore + physicalScore + diagnosisScore + examScore + conductScore + sequenceScore;
+  score -= unsafeActions.length * 8;
   score = Math.max(0, Math.min(100, score));
 
   const omitted = caseItem.criticalQuestions
@@ -3602,6 +3926,15 @@ function evaluateCase() {
   return {
     score,
     diagnosisHit,
+    diagnosisRank,
+    scoreBreakdown: {
+      anamnesis: anamnesisScore,
+      physicalExam: physicalScore,
+      diagnosis: diagnosisScore,
+      complementaryExams: examScore,
+      conduct: conductScore,
+      sequence: sequenceScore
+    },
     criticalFound,
     omitted,
     correctActions,
@@ -3647,10 +3980,10 @@ function tutorFeedback(domainReports, diagnosisHit) {
     comments.push(`Precisa aprofundar: ${lowDomains.join(", ")}.`);
   }
   if (habits && habits.coverage < 80) {
-    comments.push("Em lesoes cronicas de boca, a investigacao de habitos e fatores de risco deve ser mais completa.");
+    comments.push("A investigação de hábitos, exposições e fatores de risco deve ser mais completa e orientada ao contexto clínico.");
   }
   if (!diagnosisHit) {
-    comments.push("Revise a correlacao entre ulcera cronica, fatores de risco, perda de peso e linfonodos cervicais.");
+    comments.push("Revise a correlação entre a história clínica, os fatores de risco e os achados do exame físico.");
   }
   return comments.join(" ") || "Entrevista clinica bem conduzida, com cobertura adequada dos dominios essenciais.";
 }
@@ -3659,17 +3992,10 @@ function evaluateSequence() {
   const unique = getUniqueFlowEvents();
   const missing = ANAMNESIS_FLOW.filter((step) => !unique.includes(step.id)).map((step) => flowLabel(step.id));
   const expectedIds = ANAMNESIS_FLOW.map((step) => step.id);
-  const outOfOrder = state.outOfOrderEvents.map((event) =>
-    `${flowLabel(event.groupId)} antes de completar ${flowLabel(event.expectedStage)}`
-  );
-  let orderedCount = 0;
-  for (let i = 0; i < expectedIds.length; i += 1) {
-    if (unique[i] === expectedIds[i]) orderedCount += 1;
-  }
-  const sequencePenalty = Math.min(outOfOrder.length * 2, 6);
-  const score = Math.max(0, Math.round((orderedCount / expectedIds.length) * 10) - sequencePenalty);
+  const coveredCount = expectedIds.filter((id) => unique.includes(id)).length;
+  const score = Math.round((coveredCount / expectedIds.length) * 10);
   const observed = unique.map((id) => flowLabel(id)).join(" > ") || t("noStep");
-  return { score, missing, observed, outOfOrder };
+  return { score, missing, observed };
 }
 
 function buildSoap() {
@@ -3698,9 +4024,6 @@ function renderReport(report) {
   const missingFlow = report.sequenceReport.missing.length
     ? report.sequenceReport.missing.join(", ")
     : t("allSteps");
-  const sequenceAlerts = report.sequenceReport.outOfOrder.length
-    ? report.sequenceReport.outOfOrder.join("; ")
-    : t("noSequenceAlerts");
   const domainTable = report.domainReports.map((domain) => {
     const investigated = domain.requiredEntries
       .filter(([key]) => state.revealed.has(key))
@@ -3724,13 +4047,21 @@ function renderReport(report) {
 
   els.report.innerHTML = `
     <div class="score">${t("score")} ${report.score}/100</div>
-    <div class="feedback-card"><strong>${t("student")}</strong>${state.student.name || t("studentMissing")} ${state.student.id ? `(${state.student.id})` : ""}${state.student.college ? ` - ${state.student.college}` : ""}</div>
+    <div class="feedback-card"><strong>${t("student")}</strong>${state.student.name || t("studentMissing")}${state.student.profession ? ` · ${state.student.profession}` : ""}${state.student.city ? ` · ${state.student.city}/${state.student.stateRegion}` : ""}</div>
+    <div class="feedback-card score-breakdown"><strong>Desempenho por dimensão</strong>
+      <span>Anamnese ${report.scoreBreakdown.anamnesis}/30</span>
+      <span>Exame físico ${report.scoreBreakdown.physicalExam}/15</span>
+      <span>Hipóteses ${report.scoreBreakdown.diagnosis}/20</span>
+      <span>Exames ${report.scoreBreakdown.complementaryExams}/15</span>
+      <span>Conduta ${report.scoreBreakdown.conduct}/15</span>
+      <span>Sequência ${report.scoreBreakdown.sequence}/5</span>
+    </div>
     <div class="feedback-card"><strong>Cobertura da anamnese</strong>${domainTable}</div>
     <div class="feedback-card"><strong>Comunicacao clinica</strong>${starRating(report.communicationScore)}</div>
     <div class="feedback-card"><strong>Investigacao de fatores de risco</strong>${starRating(report.riskFactorScore)}</div>
-    <div class="feedback-card"><strong>${t("diagnosis")}</strong>${diagnosis}. ${t("expectedDiagnosis")}: ${clinicalText(state.currentCase.diagnosis)}.</div>
+    <div class="feedback-card"><strong>Exame físico</strong>${state.selectedPhysicalExams.size ? Array.from(state.selectedPhysicalExams).join(", ") : "Nenhuma avaliação realizada"}.</div>
+    <div class="feedback-card"><strong>${t("diagnosis")}</strong>${diagnosis}. ${t("expectedDiagnosis")}: ${clinicalText(state.currentCase.diagnosis)}. ${report.diagnosisRank >= 0 ? `Posição escolhida: ${report.diagnosisRank + 1}.` : ""}</div>
     <div class="feedback-card"><strong>${t("sequence")}</strong>${t("observedOrder")}: ${report.sequenceReport.observed}. ${t("gaps")}: ${missingFlow}.</div>
-    <div class="feedback-card"><strong>${t("sequenceAlerts")}</strong>${sequenceAlerts}.</div>
     <div class="feedback-card"><strong>${t("omittedQuestions")}</strong>${omitted}.</div>
     <div class="feedback-card"><strong>${t("missedActions")}</strong>${missed}.</div>
     <div class="feedback-card"><strong>${t("safetyAlerts")}</strong>${unsafe}.</div>
@@ -3756,6 +4087,7 @@ els.saveOsceBtn?.addEventListener("click", () => {
   const records = loadOsceRecords();
   records.push(record);
   saveOsceRecords(records);
+  renderDashboard();
   setOsceStatus(`Registro OSCE salvo. Total local: ${records.length}.`);
 });
 
@@ -3778,6 +4110,7 @@ els.exportAllOsceBtn?.addEventListener("click", () => {
 
 els.clearOsceBtn?.addEventListener("click", () => {
   localStorage.removeItem("examosim.osceRecords");
+  renderDashboard();
   setOsceStatus("Registros OSCE locais apagados.");
 });
 
@@ -3800,13 +4133,23 @@ function buildOsceRecord(report) {
   const studentQuestions = state.transcript.filter((entry) => entry.kind === "student").length;
   return {
     dataHora: new Date().toISOString(),
-    aluno: state.student.name || "",
-    matricula: state.student.id || "",
-    faculdade: state.student.college || "",
+    profissional: state.student.name || "",
+    profissao: state.student.profession || "",
+    cidade: state.student.city || "",
+    estado: state.student.stateRegion || "",
+    email: state.student.email || "",
+    registroProfissional: state.student.id || "",
+    instituicao: state.student.college || "",
     caso: state.currentCase?.title || state.currentCase?.id || "",
     paciente: state.currentCase ? localizedPatient(state.currentCase.patient) : "",
     queixa: state.currentCase ? localizedChiefComplaint(state.currentCase) : "",
     nota: report.score,
+    tempoSegundos: state.startedAt ? Math.round((Date.now() - state.startedAt) / 1000) : 0,
+    pontuacaoAnamnese: report.scoreBreakdown.anamnesis,
+    pontuacaoExameFisico: report.scoreBreakdown.physicalExam,
+    pontuacaoHipoteses: report.scoreBreakdown.diagnosis,
+    pontuacaoExames: report.scoreBreakdown.complementaryExams,
+    pontuacaoConduta: report.scoreBreakdown.conduct,
     hda: domainScore("currentIllness"),
     historiaFamiliar: domainScore("familyHistory"),
     historiaMedica: domainScore("medicalHistory"),
@@ -3816,11 +4159,14 @@ function buildOsceRecord(report) {
     fatoresDeRisco: report.riskFactorScore,
     diagnosticoCorreto: report.diagnosisHit ? "sim" : "nao",
     hipoteseEsperada: clinicalText(state.currentCase?.diagnosis || ""),
-    hipotesesMarcadas: Array.from(state.selectedHypotheses).map(clinicalText).join("; "),
+    hipotesesMarcadas: state.diagnosisOrder.map(clinicalText).join("; "),
+    justificativaDiagnostica: els.diagnosisJustification?.value.trim() || "",
+    examesFisicosRealizados: Array.from(state.selectedPhysicalExams).join("; "),
+    achadosExameFisico: state.revealedExamFindings.join("; "),
     condutasMarcadas: Array.from(state.selectedActions).map(clinicalText).join("; "),
+    urgencia: els.urgencySelect?.value || "",
     perguntasAluno: studentQuestions,
     ordemObservada: report.sequenceReport.observed,
-    alertasSequencia: report.sequenceReport.outOfOrder.join("; "),
     perguntasOmitidas: report.omitted.join("; "),
     condutasPendentes: report.missedActions.join("; "),
     alertasSeguranca: report.unsafeActions.join("; "),
@@ -3849,13 +4195,23 @@ function saveOsceRecords(records) {
 function downloadOsceCsv(records, filename) {
   const headers = [
     "dataHora",
-    "aluno",
-    "matricula",
-    "faculdade",
+    "profissional",
+    "profissao",
+    "cidade",
+    "estado",
+    "email",
+    "registroProfissional",
+    "instituicao",
     "caso",
     "paciente",
     "queixa",
     "nota",
+    "tempoSegundos",
+    "pontuacaoAnamnese",
+    "pontuacaoExameFisico",
+    "pontuacaoHipoteses",
+    "pontuacaoExames",
+    "pontuacaoConduta",
     "hda",
     "historiaFamiliar",
     "historiaMedica",
@@ -3866,10 +4222,13 @@ function downloadOsceCsv(records, filename) {
     "diagnosticoCorreto",
     "hipoteseEsperada",
     "hipotesesMarcadas",
+    "justificativaDiagnostica",
+    "examesFisicosRealizados",
+    "achadosExameFisico",
     "condutasMarcadas",
+    "urgencia",
     "perguntasAluno",
     "ordemObservada",
-    "alertasSequencia",
     "perguntasOmitidas",
     "condutasPendentes",
     "alertasSeguranca",
@@ -3904,257 +4263,209 @@ function setOsceStatus(message) {
   if (els.osceStatus) els.osceStatus.textContent = message;
 }
 
+function initAuthentication() {
+  authEls.loginTab.addEventListener("click", () => showAuthView("login"));
+  authEls.registerTab.addEventListener("click", () => showAuthView("register"));
+  document.querySelectorAll("[name='loginRole']").forEach((input) => {
+    input.addEventListener("change", updateLoginInstructions);
+  });
+  authEls.loginForm.addEventListener("submit", handleLogin);
+  authEls.registerForm.addEventListener("submit", handleRegistration);
+  authEls.logoutBtn.addEventListener("click", logout);
+  restoreSession();
+}
+
+function showAuthView(view) {
+  const isLogin = view === "login";
+  authEls.loginForm.hidden = !isLogin;
+  authEls.registerForm.hidden = isLogin;
+  authEls.loginTab.classList.toggle("active", isLogin);
+  authEls.registerTab.classList.toggle("active", !isLogin);
+  authEls.loginTab.setAttribute("aria-selected", String(isLogin));
+  authEls.registerTab.setAttribute("aria-selected", String(!isLogin));
+  setAuthStatus("");
+}
+
+function updateLoginInstructions() {
+  const role = document.querySelector("[name='loginRole']:checked")?.value || "professional";
+  authEls.loginInstructions.innerHTML = role === "admin"
+    ? "<strong>Acesso administrativo</strong><p>Use o e-mail e a senha fornecidos pela coordenação da plataforma.</p>"
+    : "<strong>Acesso profissional</strong><p>Entre com o e-mail e a senha usados no cadastro. Primeiro acesso? Selecione “Criar conta”.</p>";
+}
+
+async function handleLogin(event) {
+  event.preventDefault();
+  const role = document.querySelector("[name='loginRole']:checked")?.value || "professional";
+  const email = authEls.loginEmail.value.trim().toLowerCase();
+  const password = authEls.loginPassword.value;
+
+  if (role === "admin") {
+    if (email !== LOCAL_ADMIN_EMAIL || password !== LOCAL_ADMIN_PASSWORD) {
+      setAuthStatus("Credenciais administrativas inválidas.", "error");
+      return;
+    }
+    const profile = { name: "Administrador principal", profession: "Administração", city: "", stateRegion: "", email, id: "", college: "ExamOSim" };
+    startSession("admin", profile);
+    return;
+  }
+
+  const account = loadLocalAccount();
+  if (!account || account.email !== email || account.passwordHash !== await hashPassword(password)) {
+    setAuthStatus("E-mail ou senha inválidos. Se ainda não possui conta, faça seu cadastro.", "error");
+    return;
+  }
+  startSession("professional", account.profile);
+}
+
+async function handleRegistration(event) {
+  event.preventDefault();
+  const profile = {
+    name: authEls.registerName.value.trim(),
+    profession: authEls.registerProfession.value,
+    city: authEls.registerCity.value.trim(),
+    stateRegion: authEls.registerState.value.trim().toUpperCase(),
+    email: authEls.registerEmail.value.trim().toLowerCase(),
+    id: authEls.registerId.value.trim(),
+    college: authEls.registerInstitution.value.trim()
+  };
+  const account = {
+    email: profile.email,
+    passwordHash: await hashPassword(authEls.registerPassword.value),
+    profile
+  };
+  localStorage.setItem("examosim.localAccount", JSON.stringify(account));
+  localStorage.setItem("examosim.professionalProfile", JSON.stringify(profile));
+  setAuthStatus("Conta criada. Abrindo o simulador...", "success");
+  startSession("professional", profile);
+}
+
+function startSession(role, profile, persist = true) {
+  state.sessionRole = role;
+  state.student = { ...state.student, ...profile };
+  syncProfessionalForm();
+  if (persist) {
+    sessionStorage.setItem("examosim.session", JSON.stringify({ role, email: profile.email, name: profile.name }));
+  }
+  authEls.sessionUser.textContent = profile.name || (role === "admin" ? "Administrador" : "Profissional");
+  authEls.sessionRole.textContent = role === "admin" ? "Acesso administrativo" : profile.profession || "Profissional de saúde";
+  els.studentForm.querySelectorAll("input, select").forEach((field) => {
+    field.disabled = role === "admin";
+  });
+  authEls.landingPage.hidden = true;
+  authEls.simulatorApp.hidden = false;
+  document.body.classList.add("simulator-open");
+  if (state.currentCase) {
+    renderChart();
+    renderDashboard();
+  }
+  window.scrollTo({ top: 0, behavior: "instant" });
+}
+
+function logout() {
+  sessionStorage.removeItem("examosim.session");
+  authEls.simulatorApp.hidden = true;
+  authEls.landingPage.hidden = false;
+  authEls.loginPassword.value = "";
+  document.body.classList.remove("simulator-open");
+  showAuthView("login");
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function restoreSession() {
+  try {
+    const session = JSON.parse(sessionStorage.getItem("examosim.session") || "null");
+    if (!session) return;
+    if (session.role === "admin") {
+      startSession("admin", { name: "Administrador principal", profession: "Administração", email: LOCAL_ADMIN_EMAIL, city: "", stateRegion: "", id: "", college: "ExamOSim" }, false);
+      return;
+    }
+    const account = loadLocalAccount();
+    if (account?.profile) startSession("professional", account.profile, false);
+  } catch (error) {
+    sessionStorage.removeItem("examosim.session");
+  }
+}
+
+function loadLocalAccount() {
+  try {
+    return JSON.parse(localStorage.getItem("examosim.localAccount") || "null");
+  } catch (error) {
+    return null;
+  }
+}
+
+async function hashPassword(password) {
+  const bytes = new TextEncoder().encode(password);
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+function setAuthStatus(message, type = "") {
+  authEls.authStatus.textContent = message;
+  authEls.authStatus.className = `auth-status ${type}`.trim();
+}
+
+function syncProfessionalForm() {
+  els.studentName.value = state.student.name || "";
+  els.studentId.value = state.student.id || "";
+  els.studentCollege.value = state.student.college || "";
+  els.profession.value = state.student.profession || "";
+  els.city.value = state.student.city || "";
+  els.stateRegion.value = state.student.stateRegion || "";
+  els.professionalEmail.value = state.student.email || "";
+}
+
+function restoreProfessionalProfile() {
+  try {
+    const profile = JSON.parse(localStorage.getItem("examosim.professionalProfile") || "{}");
+    state.student = { ...state.student, ...profile };
+    syncProfessionalForm();
+  } catch (error) {
+    localStorage.removeItem("examosim.professionalProfile");
+  }
+}
+
+function renderDashboard() {
+  if (!els.dashboardStats) return;
+  const records = loadOsceRecords();
+  const scores = records.map((record) => Number(record.nota)).filter(Number.isFinite);
+  const average = scores.length ? Math.round(scores.reduce((sum, score) => sum + score, 0) / scores.length) : 0;
+  const last = records.at(-1);
+  els.dashboardStats.innerHTML = `
+    <div><strong>${state.cases.length || 52}</strong><span>casos disponíveis</span></div>
+    <div><strong>${records.length}</strong><span>concluídos</span></div>
+    <div><strong>${average || "—"}</strong><span>média geral</span></div>
+    <p>${last ? `Último caso: ${last.caso || "caso clínico"} · ${last.nota}/100` : "Conclua um caso para iniciar seu histórico de evolução."}</p>
+  `;
+}
+
 els.caseSelect.addEventListener("change", (event) => loadCase(event.target.value));
 
 els.languageSelect.addEventListener("change", (event) => {
   state.language = event.target.value;
-  if (state.recognition) state.recognition.lang = t("langCode");
-  stopPatientVoice();
   rerenderLanguageDependentViews({ resetConversation: true });
 });
 
+initAuthentication();
 boot();
 
 els.studentForm.addEventListener("input", () => {
   state.student.name = els.studentName.value.trim();
   state.student.id = els.studentId.value.trim();
   state.student.college = els.studentCollege.value.trim();
+  state.student.profession = els.profession.value;
+  state.student.city = els.city.value.trim();
+  state.student.stateRegion = els.stateRegion.value;
+  state.student.email = els.professionalEmail.value.trim();
+  localStorage.setItem("examosim.professionalProfile", JSON.stringify(state.student));
+  const account = loadLocalAccount();
+  if (account && state.sessionRole === "professional") {
+    account.profile = { ...state.student };
+    account.email = state.student.email.toLowerCase();
+    localStorage.setItem("examosim.localAccount", JSON.stringify(account));
+  }
+  authEls.sessionUser.textContent = state.student.name || "Profissional";
+  authEls.sessionRole.textContent = state.sessionRole === "admin" ? "Acesso administrativo" : state.student.profession || "Profissional de saúde";
   renderChart();
+  renderDashboard();
 });
-
-els.voiceToggle.addEventListener("change", () => {
-  state.voiceEnabled = els.voiceToggle.checked;
-  if (!state.voiceEnabled) {
-    stopPatientVoice();
-    els.voiceStatus.textContent = state.recognition ? t("micAvailable") : t("unavailableMic");
-    return;
-  }
-
-  if (!("speechSynthesis" in window)) {
-    els.voiceStatus.textContent = t("voiceUnavailable");
-  } else {
-    els.voiceStatus.textContent = t("voiceBrowserReady");
-  }
-
-  const latestPatientMessage = [...state.transcript]
-    .reverse()
-    .find((entry) => entry.kind === "patient");
-  if (latestPatientMessage) speakPatient(latestPatientMessage.text);
-});
-
-els.micBtn.addEventListener("click", () => {
-  if (!state.recognition) {
-    els.voiceStatus.textContent = t("unavailableRecognition");
-    return;
-  }
-
-  if (state.recognizing) {
-    state.recognition.stop();
-    return;
-  }
-
-  state.recognition.start();
-});
-
-async function speakPatient(text) {
-  if (!state.voiceEnabled) return;
-
-  stopPatientVoice();
-  const requestId = state.speechRequestId;
-  const patient = state.currentCase?.patient;
-
-  try {
-    const response = await fetch(apiUrl("/api/cartesia-tts"), {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        text,
-        language: state.language,
-        gender: isFemalePatient(patient) ? "feminine" : "masculine",
-        speed: voiceRateForPatient(patient)
-      })
-    });
-    if (!response.ok) throw new Error(`Cartesia TTS returned ${response.status}`);
-
-    const audioBlob = await response.blob();
-    if (!state.voiceEnabled || requestId !== state.speechRequestId) return;
-
-    state.patientAudioUrl = URL.createObjectURL(audioBlob);
-    state.patientAudio = new Audio(state.patientAudioUrl);
-    state.patientAudio.addEventListener("ended", clearPatientAudio, { once: true });
-    state.patientAudio.addEventListener("error", clearPatientAudio, { once: true });
-    els.voiceStatus.textContent = t("voiceSpeaking");
-    await state.patientAudio.play();
-    return;
-  } catch (error) {
-    if (!state.voiceEnabled || requestId !== state.speechRequestId) return;
-  }
-
-  speakPatientWithBrowser(text);
-}
-
-function speakPatientWithBrowser(text) {
-  if (!("speechSynthesis" in window)) {
-    els.voiceStatus.textContent = t("voiceUnavailable");
-    return;
-  }
-
-  window.speechSynthesis.cancel();
-  loadVoices();
-  const patient = state.currentCase?.patient;
-  const utterance = new SpeechSynthesisUtterance(text);
-  utterance.lang = t("langCode");
-  utterance.rate = voiceRateForPatient(patient);
-  utterance.pitch = voicePitchForPatient(patient);
-  utterance.voice = chooseVoiceForPatient();
-  utterance.addEventListener("start", () => {
-    els.voiceStatus.textContent = t("voiceSpeaking");
-  });
-  utterance.addEventListener("end", () => {
-    if (state.voiceEnabled) els.voiceStatus.textContent = t("voiceBrowserReady");
-  });
-  utterance.addEventListener("error", () => {
-    els.voiceStatus.textContent = t("voiceUnavailable");
-  });
-  window.speechSynthesis.speak(utterance);
-}
-
-function stopPatientVoice() {
-  state.speechRequestId += 1;
-  window.speechSynthesis?.cancel();
-  if (state.patientAudio) {
-    state.patientAudio.pause();
-    state.patientAudio.currentTime = 0;
-  }
-  clearPatientAudio();
-}
-
-function clearPatientAudio() {
-  state.patientAudio = null;
-  if (state.patientAudioUrl) URL.revokeObjectURL(state.patientAudioUrl);
-  state.patientAudioUrl = "";
-  if (state.voiceEnabled) els.voiceStatus.textContent = t("voiceBrowserReady");
-}
-
-function chooseVoiceForPatient() {
-  const patient = state.currentCase?.patient;
-  if (!patient || !state.voices.length) return null;
-
-  const localePrefix = state.language === "pt" ? "pt" : state.language === "es" ? "es" : "en";
-  const localeVoices = state.voices.filter((voice) => normalize(voice.lang).startsWith(localePrefix));
-  const voices = localeVoices.length ? localeVoices : state.voices;
-  const gender = isFemalePatient(patient) ? "female" : "male";
-
-  const femaleHints = [
-    "female",
-    "feminina",
-    "maria",
-    "luciana",
-    "helena",
-    "heloisa",
-    "leticia",
-    "joana",
-    "francisca",
-    "raquel",
-    "yara",
-    "vitoria",
-    "camila"
-  ];
-  const maleHints = [
-    "male",
-    "masculina",
-    "daniel",
-    "felipe",
-    "carlos",
-    "joao",
-    "jorge",
-    "antonio",
-    "ricardo",
-    "paulo"
-  ];
-  const hints = gender === "female" ? femaleHints : maleHints;
-
-  return (
-    voices.find((voice) => hints.some((hint) => normalize(voice.name).includes(hint))) ||
-    voices.find((voice) => gender === "female" && !maleHints.some((hint) => normalize(voice.name).includes(hint))) ||
-    voices.find((voice) => voice.localService) ||
-    voices[0] ||
-    null
-  );
-}
-
-function isFemalePatient(patient) {
-  return normalize(patient?.gender || "").includes("feminino");
-}
-
-function voicePitchForPatient(patient) {
-  const basePitch = patient?.voicePitch || 1;
-  const age = patient?.age || 35;
-
-  if (age < 13) return Math.min(Math.max(basePitch + 0.32, 1.22), 1.65);
-  if (age < 20) return Math.min(Math.max(basePitch + 0.16, 1.04), 1.42);
-  if (age >= 60) return Math.max(basePitch - 0.12, 0.72);
-  if (isFemalePatient(patient)) return Math.max(basePitch, 1.12);
-  return Math.min(basePitch, 0.96);
-}
-
-function voiceRateForPatient(patient) {
-  const age = patient?.age || 35;
-
-  if (age < 13) return 1.06;
-  if (age < 20) return 1.02;
-  if (age >= 60) return 0.88;
-  return isFemalePatient(patient) ? 1 : 0.94;
-}
-
-function loadVoices() {
-  if (!("speechSynthesis" in window)) return;
-  state.voices = window.speechSynthesis.getVoices();
-}
-
-function setupSpeechRecognition() {
-  const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!Recognition) {
-    els.micBtn.disabled = true;
-    els.voiceStatus.textContent = t("unavailableMic");
-    return;
-  }
-
-  state.recognition = new Recognition();
-  state.recognition.lang = t("langCode");
-  state.recognition.interimResults = false;
-  state.recognition.continuous = false;
-
-  state.recognition.addEventListener("start", () => {
-    state.recognizing = true;
-    els.micBtn.classList.add("listening");
-    els.voiceStatus.textContent = t("listening");
-  });
-
-  state.recognition.addEventListener("result", (event) => {
-    const transcript = Array.from(event.results)
-      .map((result) => result[0].transcript)
-      .join(" ");
-    els.questionInput.value = transcript;
-    submitQuestion();
-  });
-
-  state.recognition.addEventListener("end", () => {
-    state.recognizing = false;
-    els.micBtn.classList.remove("listening");
-    els.voiceStatus.textContent = t("micReady");
-  });
-
-  state.recognition.addEventListener("error", () => {
-    state.recognizing = false;
-    els.micBtn.classList.remove("listening");
-    els.voiceStatus.textContent = t("micError");
-  });
-}
-
-setupSpeechRecognition();
-loadVoices();
-
-if ("speechSynthesis" in window) {
-  window.speechSynthesis.addEventListener("voiceschanged", loadVoices);
-}

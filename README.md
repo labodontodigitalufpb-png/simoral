@@ -1,34 +1,39 @@
 # ExamOSim
 
-Protótipo inicial do Simulador Inteligente de Anamnese Odontológica com IA.
+Plataforma educacional de treinamento em raciocínio clínico com paciente virtual. O ExamOSim simula uma consulta em etapas — anamnese, exame físico, hipóteses diagnósticas, exames complementares e conduta — e não deve ser usado para diagnóstico autônomo de pacientes reais.
 
 ## O que esta versão entrega
 
-- Anamnese textual com paciente virtual.
-- Banco de casos clínicos em JSON.
-- 22 histórias clínicas de lesões e doenças bucais com idade, sexo, hábitos e perfil emocional específicos.
+- Consulta textual com paciente virtual e progressão clínica controlada.
+- Página inicial pública com apresentação, instruções, login profissional, acesso administrativo e cadastro.
+- Sessão local com bloqueio da interface clínica até a autenticação e opção de logout.
+- Banco com 52 casos clínicos em JSON, sem programação individual da interface.
+- Perfil multiprofissional com nome, profissão, cidade, estado, e-mail, registro e instituição.
+- Painel local com casos disponíveis, casos concluídos, média e último desempenho.
 - Fotos de pacientes separadas por sexo e idade, recortadas da imagem de referência e associadas a cada caso.
-- Cadastro simples do aluno com nome, matrícula e faculdade no relatório.
 - Pacientes identificados apenas por iniciais para anonimização dos casos.
 - Seletor de idioma para português, inglês e espanhol.
-- Diálogos do paciente, voz sintetizada e hipóteses diagnósticas acompanham o idioma selecionado.
+- Diálogos do paciente e hipóteses diagnósticas acompanham o idioma selecionado.
 - Diálogo orientado por intenções clínicas ampliadas de HDA, história familiar, médica, odontológica e hábitos.
 - Casos adicionais importados de `CASO CLÍNICO 1.docx`, com exame clínico físico estruturado.
-- Exame físico bloqueado até completar o itinerário de anamnese e obter a maioria dos dados essenciais.
-- Avanço entre etapas da anamnese condicionado a pelo menos 3 perguntas estruturadas por etapa, quando disponíveis.
+- Navegação por fases: Anamnese → Exame físico → Diagnóstico → Exames → Conduta.
+- Exame físico liberado por suficiência clínica: 3 perguntas na HDA cobrindo ao menos 2 dimensões, passagem por 3 blocos complementares e 45% dos dados essenciais — ou 8 perguntas totais como alternativa quando a formulação livre não for classificada perfeitamente.
+- Seleção de regiões, sistemas e técnicas, com achados revelados sob solicitação.
+- Perguntas compostas podem cobrir mais de uma dimensão da HDA, e os demais blocos exigem apenas uma abordagem relevante para o avanço.
 - Roteiro de anamnese baseado no arquivo Word importado em `data/anamnesis-reference.txt`.
 - Dados ocultos liberados por perguntas relevantes.
 - Paciente com respostas evasivas ou progressivas.
-- Voz do paciente por síntese de fala do navegador.
-- Voz natural do paciente pela Cartesia Sonic, com síntese do navegador como fallback.
-- Entrada por microfone para o profissional quando o navegador suportar reconhecimento de fala.
+- Interação com o paciente exclusivamente por texto.
+- Fotografias clínicas do livro de referência liberadas durante a inspeção da região correspondente, sem antecipar o diagnóstico.
 - Prontuário digital atualizado durante a consulta.
-- Seleção de hipóteses diagnósticas.
-- Seleção de exames e condutas.
-- Avaliação final com nota, lacunas, alertas e SOAP automático.
+- Seleção ordenada de até cinco hipóteses, acompanhada de justificativa clínica.
+- Exames complementares e condutas separados e liberados progressivamente.
+- Classificação da urgência clínica.
+- Avaliação multidimensional em 100 pontos, lacunas, alertas, feedback do tutor e SOAP automático.
 - Campo de observações da OSCE e exportação de registros em CSV para planilha.
-- Consultório odontológico visual em HTML/CSS como placeholder para a futura cena 3D.
-- Avaliação da sequência lógica: história da doença atual, história familiar, história médica, história odontológica e hábitos/dependências.
+- Consultório virtual visual em HTML/CSS como placeholder para uma futura cena 3D.
+- Blocos de anamnese acessíveis em qualquer ordem, sem aviso ou penalidade por sequência.
+- História odontológica aberta a perguntas sobre qualquer tratamento ou procedimento, como restaurações, extrações, canal, próteses, implantes, ortodontia, cirurgia, periodontia, limpeza e clareamento.
 
 ## Como abrir
 
@@ -74,20 +79,9 @@ O Gemini recebe apenas a pergunta, a resposta-base segura e os dados clínicos j
 
 > Observação: o Gemini via `/api/gemini-dialogue` depende do `server.js`. Em GitHub Pages, que é estático, essa rota não funciona. Para usar Gemini em acesso público, publique o backend Node separadamente e mantenha a chave fora dos arquivos públicos.
 
-## Cartesia opcional
-
-Para ativar a voz natural do paciente, acrescente ao `.env`:
-
-```text
-CARTESIA_API_KEY=sua_chave
-CARTESIA_MODEL=sonic-3.5
-```
-
-O servidor escolhe automaticamente uma voz pelo idioma e gênero do paciente. Para usar sempre uma voz específica, configure também `CARTESIA_VOICE_ID`. A chave permanece no backend e nunca é enviada ao navegador.
-
 No GitHub Pages, o frontend usa o backend público em `https://simoral.onrender.com`. Em execução local, as chamadas continuam sendo feitas ao mesmo servidor que entrega a interface.
 
-## Planilha OSCE
+## Registros e planilha OSCE
 
 Na seção `Avaliação`, use:
 
@@ -99,27 +93,19 @@ Na seção `Avaliação`, use:
 
 O CSV abre em Excel, Google Sheets ou LibreOffice.
 
+Os registros incluem perfil profissional, localização, duração da tentativa, perguntas, cobertura da anamnese, exame físico, hipóteses e justificativa, exames, condutas, urgência e pontuação por dimensão.
+
+## Escopo de persistência atual
+
+Esta versão mantém conta, perfil e histórico no navegador. A senha profissional é armazenada apenas como hash SHA-256 no `localStorage`, e a sessão usa `sessionStorage`; isso atende à demonstração local, mas não substitui autenticação segura de produção. Credenciais administrativas não são exibidas na página pública. Antes de publicar para uso real, o acesso local deve ser substituído por backend, banco de dados, hash com salt, recuperação de senha e controle de acesso por papéis.
+
 ## Publicação na internet
 
 Para publicar a versão estática no GitHub Pages, siga o guia em `DEPLOY_GITHUB_PAGES.md`.
 
 ## Casos disponíveis
 
-- 2 casos de carcinoma espinocelular.
-- 2 casos de leucoplasia oral.
-- 2 casos de candidíase oral associada a prótese.
-- 2 casos de líquen plano oral erosivo.
-- 2 casos de estomatite aftosa recorrente menor.
-- 2 casos de mucocele.
-- 2 casos de gengivoestomatite herpética primária.
-- 2 casos de pênfigo vulgar.
-- 2 casos de gengivite ulcerativa necrosante.
-- 2 casos de língua geográfica.
-- 2 casos de queilite actínica.
-
-## Áudio
-
-O botão `Voz do paciente` ativa a leitura das respostas pela Cartesia quando configurada, com fallback automático para a síntese do navegador. O botão `Mic` tenta captar a pergunta do profissional e enviá-la automaticamente. O reconhecimento de fala depende do navegador e costuma funcionar melhor em Chrome ou Edge.
+O arquivo `data/cases.json` contém 52 casos. Trinta já possuem achados de exame físico estruturados; nos demais, a interface sinaliza quando um resultado específico ainda precisa ser enriquecido no roteiro. A arquitetura da interface lê os casos dinamicamente e está pronta para receber novas especialidades e sistemas clínicos.
 
 ## Assets importados
 
@@ -134,11 +120,15 @@ As imagens dos pacientes ficam em `assets/patients/`:
 
 O conteúdo textual extraído do Word está em `data/anamnesis-reference.txt` e serviu como base para organizar as respostas clínicas por blocos de anamnese.
 
+As fotografias clínicas extraídas de `doenças de boca.pdf` ficam em `assets/lesions/book/`. O vínculo entre diagnóstico, arquivo, legenda e página de origem está em `data/lesion-images.json`; a atribuição bibliográfica também consta em `assets/lesions/book/README.md`.
+
+Foram vinculadas imagens exatas a 40 dos 52 casos. Quando o livro não trazia uma fotografia diretamente correspondente ao diagnóstico do caso, nenhuma imagem aproximada foi usada, evitando uma ilustração clinicamente enganosa.
+
 ## Próximas fases sugeridas
 
-1. Migrar para Next.js + React.
-2. Extrair o motor clínico para FastAPI.
-3. Adicionar persistência em PostgreSQL/Supabase.
-4. Substituir o placeholder visual por React Three Fiber + avatar VRM/GLB.
-5. Integrar STT/TTS e LLM para linguagem natural.
-6. Criar modo professor com editor de casos.
+1. Substituir a autenticação local de demonstração por autenticação centralizada e autorização por papéis.
+2. Adicionar persistência central em PostgreSQL/Supabase e trilha completa de tentativas.
+3. Criar painel administrativo, filtros, comparação de tentativas e exportações XLSX/PDF.
+4. Criar editor estruturado de casos e catálogo multiprofissional.
+5. Estruturar resultados específicos de sinais vitais, exame físico e exames complementares em todos os casos.
+6. Substituir o placeholder visual por React Three Fiber + avatar VRM/GLB.
