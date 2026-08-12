@@ -1,18 +1,18 @@
 const http = require("http");
 const fs = require("fs");
 const path = require("path");
+const crypto = require("crypto");
 
 loadEnvFile();
 
 const PORT = Number(process.env.PORT || 5173);
 const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
-const CARTESIA_API_KEY = process.env.CARTESIA_API_KEY || "";
-const CARTESIA_MODEL = process.env.CARTESIA_MODEL || "sonic-3.5";
-const CARTESIA_VERSION = process.env.CARTESIA_VERSION || "2026-03-01";
-const CARTESIA_VOICE_ID = process.env.CARTESIA_VOICE_ID || "";
+const ADMIN_EMAIL = (process.env.ADMIN_EMAIL || "admin@examosim.local").trim().toLowerCase();
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || (process.env.NODE_ENV === "production" ? "" : "Admin@123");
+const SESSION_SECRET = process.env.SESSION_SECRET || crypto.randomBytes(32).toString("hex");
+const DATA_FILE = path.resolve(process.env.DATA_FILE || path.join(__dirname, ".data", "examosim-db.json"));
 const PUBLIC_DIR = __dirname;
-const cartesiaVoiceCache = new Map();
 const ALLOWED_ORIGINS = new Set([
   "https://labodontodigitalufpb-png.github.io",
   "http://localhost:5173",
@@ -34,28 +34,28 @@ const MIME_TYPES = {
 const server = http.createServer(async (req, res) => {
   try {
     applyCors(req, res);
+    const requestUrl = new URL(req.url, `http://${req.headers.host || "localhost"}`);
     if (req.method === "OPTIONS") {
       res.writeHead(204);
       res.end();
       return;
     }
 
-    if (req.method === "GET" && req.url === "/health") {
+    if (req.method === "GET" && requestUrl.pathname === "/health") {
       sendJson(res, 200, {
         status: "ok",
-        geminiConfigured: Boolean(GEMINI_API_KEY),
-        cartesiaConfigured: Boolean(CARTESIA_API_KEY)
+        geminiConfigured: Boolean(GEMINI_API_KEY)
       });
       return;
     }
 
-    if (req.method === "POST" && req.url === "/api/gemini-dialogue") {
+    if (req.method === "POST" && requestUrl.pathname === "/api/gemini-dialogue") {
       await handleGeminiDialogue(req, res);
       return;
     }
 
-    if (req.method === "POST" && req.url === "/api/cartesia-tts") {
-      await handleCartesiaTts(req, res);
+    if (requestUrl.pathname.startsWith("/api/")) {
+      await handleApi(req, res, requestUrl);
       return;
     }
 
@@ -76,102 +76,316 @@ server.listen(PORT, () => {
   if (!GEMINI_API_KEY) {
     console.log("Gemini polishing disabled: set GEMINI_API_KEY in .env to enable it.");
   }
-  if (!CARTESIA_API_KEY) {
-    console.log("Cartesia voice disabled: set CARTESIA_API_KEY in .env to enable it.");
+  if (!process.env.SESSION_SECRET) {
+    console.warn("SESSION_SECRET is temporary; sessions will expire when the server restarts.");
+  }
+  if (!ADMIN_PASSWORD) {
+    console.warn("Administrative login disabled: set ADMIN_EMAIL and ADMIN_PASSWORD.");
   }
 });
 
-async function handleCartesiaTts(req, res) {
-  if (!CARTESIA_API_KEY) {
-    sendJson(res, 503, { error: "Cartesia is not configured" });
+async function handleApi(req, res, url) {
+  if (req.method === "POST" && url.pathname === "/api/auth/register") {
+    await handleRegistration(req, res);
+    return;
+  }
+  if (req.method === "POST" && url.pathname === "/api/auth/login") {
+    await handleLogin(req, res);
     return;
   }
 
+  const session = authenticateRequest(req);
+  if (!session) {
+    sendJson(res, 401, { error: "Sessão inválida ou expirada." });
+    return;
+  }
+
+  if (req.method === "GET" && url.pathname === "/api/auth/me") {
+    const profile = session.role === "admin" ? adminProfile() : findUserById(session.sub)?.profile;
+    if (!profile) {
+      sendJson(res, 401, { error: "Conta não encontrada." });
+      return;
+    }
+    sendJson(res, 200, { role: session.role, profile });
+    return;
+  }
+
+  if (req.method === "PUT" && url.pathname === "/api/profile") {
+    if (session.role !== "professional") return sendForbidden(res);
+    const body = await readJsonBody(req);
+    const database = readDatabase();
+    const user = database.users.find((item) => item.id === session.sub);
+    if (!user) {
+      sendJson(res, 404, { error: "Conta não encontrada." });
+      return;
+    }
+    user.profile = normalizeProfile({ ...user.profile, ...body, email: user.email });
+    writeDatabase(database);
+    sendJson(res, 200, { profile: user.profile });
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/attempts") {
+    if (session.role !== "professional") return sendForbidden(res);
+    const body = await readJsonBody(req);
+    const database = readDatabase();
+    const user = database.users.find((item) => item.id === session.sub);
+    if (!user) {
+      sendJson(res, 404, { error: "Conta não encontrada." });
+      return;
+    }
+    const attempt = normalizeAttempt(body, user);
+    const existingIndex = database.attempts.findIndex(
+      (item) => item.id === attempt.id && item.userId === user.id
+    );
+    if (existingIndex >= 0) database.attempts[existingIndex] = attempt;
+    else database.attempts.push(attempt);
+    writeDatabase(database);
+    sendJson(res, existingIndex >= 0 ? 200 : 201, { attempt });
+    return;
+  }
+
+  if (req.method === "GET" && url.pathname === "/api/attempts/mine") {
+    if (session.role !== "professional") return sendForbidden(res);
+    const attempts = readDatabase().attempts.filter((item) => item.userId === session.sub);
+    sendJson(res, 200, { attempts: sortAttempts(attempts) });
+    return;
+  }
+
+  if (req.method === "GET" && url.pathname === "/api/admin/attempts") {
+    if (session.role !== "admin") return sendForbidden(res);
+    const attempts = filterAttempts(readDatabase().attempts, url.searchParams);
+    sendJson(res, 200, { attempts: sortAttempts(attempts) });
+    return;
+  }
+
+  if (req.method === "GET" && url.pathname === "/api/admin/attempts.csv") {
+    if (session.role !== "admin") return sendForbidden(res);
+    const attempts = filterAttempts(readDatabase().attempts, url.searchParams);
+    sendCsv(res, attemptsToCsv(sortAttempts(attempts)), "examosim-todas-avaliacoes.csv");
+    return;
+  }
+
+  sendJson(res, 404, { error: "Rota não encontrada." });
+}
+
+async function handleRegistration(req, res) {
   const body = await readJsonBody(req);
-  const transcript = String(body.text || "").trim().slice(0, 1200);
-  if (!transcript) {
-    sendJson(res, 400, { error: "Text is required" });
+  const profile = normalizeProfile(body.profile || body);
+  const password = String(body.password || "");
+  if (!profile.name || !profile.profession || !profile.city || !profile.stateRegion || !isEmail(profile.email)) {
+    sendJson(res, 400, { error: "Preencha nome, profissão, cidade, UF e um e-mail válido." });
     return;
   }
-
-  const language = ["pt", "en", "es"].includes(body.language) ? body.language : "pt";
-  const gender = body.gender === "feminine" ? "feminine" : "masculine";
-  const voiceId = CARTESIA_VOICE_ID || await findCartesiaVoice(language, gender);
-  if (!voiceId) {
-    sendJson(res, 502, { error: "No compatible Cartesia voice was found" });
+  if (password.length < 8) {
+    sendJson(res, 400, { error: "A senha deve ter pelo menos 8 caracteres." });
     return;
   }
-
-  const speed = Number.isFinite(Number(body.speed))
-    ? Math.min(Math.max(Number(body.speed), 0.7), 1.3)
-    : 1;
-  const cartesiaResponse = await fetch("https://api.cartesia.ai/tts/bytes", {
-    method: "POST",
-    headers: cartesiaHeaders({ "Content-Type": "application/json" }),
-    body: JSON.stringify({
-      model_id: CARTESIA_MODEL,
-      transcript,
-      voice: { mode: "id", id: voiceId },
-      language,
-      output_format: {
-        container: "mp3",
-        sample_rate: 44100,
-        bit_rate: 128000
-      },
-      generation_config: { speed, volume: 1 }
-    })
-  });
-
-  if (!cartesiaResponse.ok) {
-    const details = await cartesiaResponse.text().catch(() => "");
-    console.error("Cartesia TTS error:", cartesiaResponse.status, details.slice(0, 500));
-    sendJson(res, 502, { error: "Cartesia could not synthesize the voice" });
+  const database = readDatabase();
+  if (database.users.some((user) => user.email === profile.email) || profile.email === ADMIN_EMAIL) {
+    sendJson(res, 409, { error: "Já existe uma conta com este e-mail." });
     return;
   }
-
-  const audio = Buffer.from(await cartesiaResponse.arrayBuffer());
-  res.writeHead(200, {
-    "Content-Type": cartesiaResponse.headers.get("content-type") || "audio/mpeg",
-    "Content-Length": audio.length,
-    "Cache-Control": "no-store"
-  });
-  res.end(audio);
+  const salt = crypto.randomBytes(16).toString("hex");
+  const user = {
+    id: crypto.randomUUID(),
+    email: profile.email,
+    passwordSalt: salt,
+    passwordHash: hashPassword(password, salt),
+    profile,
+    createdAt: new Date().toISOString()
+  };
+  database.users.push(user);
+  writeDatabase(database);
+  sendJson(res, 201, authResponse("professional", user.id, profile));
 }
 
-async function findCartesiaVoice(language, gender) {
-  const cacheKey = `${language}:${gender}`;
-  if (cartesiaVoiceCache.has(cacheKey)) return cartesiaVoiceCache.get(cacheKey);
-
-  const query = new URLSearchParams({
-    language,
-    gender,
-    limit: "100"
-  });
-  const response = await fetch(`https://api.cartesia.ai/voices?${query}`, {
-    headers: cartesiaHeaders()
-  });
-  if (!response.ok) {
-    const details = await response.text().catch(() => "");
-    console.error("Cartesia voices error:", response.status, details.slice(0, 500));
-    return "";
+async function handleLogin(req, res) {
+  const body = await readJsonBody(req);
+  const email = String(body.email || "").trim().toLowerCase();
+  const password = String(body.password || "");
+  const role = body.role === "admin" ? "admin" : "professional";
+  if (role === "admin") {
+    if (!ADMIN_PASSWORD || !safeEqual(email, ADMIN_EMAIL) || !safeEqual(password, ADMIN_PASSWORD)) {
+      sendJson(res, 401, { error: "Credenciais administrativas inválidas." });
+      return;
+    }
+    sendJson(res, 200, authResponse("admin", "admin", adminProfile()));
+    return;
   }
-
-  const data = await response.json().catch(() => ({}));
-  const voices = Array.isArray(data.data) ? data.data : [];
-  const preferredCountry = language === "pt" ? "BR" : language === "en" ? "US" : null;
-  const voice = voices.find((item) => !preferredCountry || item.country === preferredCountry) || voices[0];
-  const voiceId = voice?.id || "";
-  if (voiceId) cartesiaVoiceCache.set(cacheKey, voiceId);
-  return voiceId;
+  const user = readDatabase().users.find((item) => item.email === email);
+  if (!user || !safeEqual(hashPassword(password, user.passwordSalt), user.passwordHash)) {
+    sendJson(res, 401, { error: "E-mail ou senha inválidos." });
+    return;
+  }
+  sendJson(res, 200, authResponse("professional", user.id, user.profile));
 }
 
-function cartesiaHeaders(extra = {}) {
+function authResponse(role, subject, profile) {
+  return { role, profile, token: createSessionToken({ sub: subject, role }) };
+}
+
+function createSessionToken(payload) {
+  const encoded = Buffer.from(JSON.stringify({ ...payload, exp: Date.now() + 12 * 60 * 60 * 1000 })).toString("base64url");
+  const signature = crypto.createHmac("sha256", SESSION_SECRET).update(encoded).digest("base64url");
+  return `${encoded}.${signature}`;
+}
+
+function authenticateRequest(req) {
+  const match = String(req.headers.authorization || "").match(/^Bearer\s+(.+)$/i);
+  if (!match) return null;
+  const [encoded, signature] = match[1].split(".");
+  if (!encoded || !signature) return null;
+  const expected = crypto.createHmac("sha256", SESSION_SECRET).update(encoded).digest("base64url");
+  if (!safeEqual(signature, expected)) return null;
+  try {
+    const payload = JSON.parse(Buffer.from(encoded, "base64url").toString("utf8"));
+    return payload.exp > Date.now() ? payload : null;
+  } catch (error) {
+    return null;
+  }
+}
+
+function hashPassword(password, salt) {
+  return crypto.pbkdf2Sync(password, salt, 210_000, 32, "sha256").toString("hex");
+}
+
+function safeEqual(left, right) {
+  const leftBuffer = Buffer.from(String(left));
+  const rightBuffer = Buffer.from(String(right));
+  return leftBuffer.length === rightBuffer.length && crypto.timingSafeEqual(leftBuffer, rightBuffer);
+}
+
+function adminProfile() {
+  return { name: "Administrador principal", profession: "Administração", city: "", stateRegion: "", email: ADMIN_EMAIL, id: "", college: "ExamOSim" };
+}
+
+function normalizeProfile(profile = {}) {
   return {
-    Authorization: `Bearer ${CARTESIA_API_KEY}`,
-    "Cartesia-Version": CARTESIA_VERSION,
-    ...extra
+    name: cleanText(profile.name, 160),
+    profession: cleanText(profile.profession, 100),
+    city: cleanText(profile.city, 100),
+    stateRegion: cleanText(profile.stateRegion, 2).toUpperCase(),
+    email: cleanText(profile.email, 254).toLowerCase(),
+    id: cleanText(profile.id, 100),
+    college: cleanText(profile.college, 180)
   };
 }
+
+function normalizeAttempt(body, user) {
+  const source = body.record && typeof body.record === "object" ? body.record : body;
+  const allowed = {};
+  OSCE_HEADERS.forEach((key) => {
+    allowed[key] = cleanText(source[key], 20_000);
+  });
+  const transcript = Array.isArray(source.transcript)
+    ? source.transcript.slice(-500).map((entry) => ({
+        kind: ["student", "patient", "system"].includes(entry.kind) ? entry.kind : "system",
+        text: cleanText(entry.text, 4_000)
+      }))
+    : [];
+  return {
+    ...allowed,
+    id: cleanText(source.attemptId || source.id, 100) || crypto.randomUUID(),
+    userId: user.id,
+    profissional: user.profile.name,
+    profissao: user.profile.profession,
+    cidade: user.profile.city,
+    estado: user.profile.stateRegion,
+    email: user.email,
+    registroProfissional: user.profile.id,
+    instituicao: user.profile.college,
+    dataHora: cleanText(source.dataHora, 40) || new Date().toISOString(),
+    transcript
+  };
+}
+
+function readDatabase() {
+  try {
+    const parsed = JSON.parse(fs.readFileSync(DATA_FILE, "utf8"));
+    return {
+      users: Array.isArray(parsed.users) ? parsed.users : [],
+      attempts: Array.isArray(parsed.attempts) ? parsed.attempts : []
+    };
+  } catch (error) {
+    if (error.code !== "ENOENT") console.error("Database read error:", error);
+    return { users: [], attempts: [] };
+  }
+}
+
+function writeDatabase(database) {
+  fs.mkdirSync(path.dirname(DATA_FILE), { recursive: true });
+  const temporary = `${DATA_FILE}.${process.pid}.tmp`;
+  fs.writeFileSync(temporary, JSON.stringify(database, null, 2), { mode: 0o600 });
+  fs.renameSync(temporary, DATA_FILE);
+}
+
+function findUserById(id) {
+  return readDatabase().users.find((user) => user.id === id);
+}
+
+function sortAttempts(attempts) {
+  return [...attempts].sort((a, b) => String(b.dataHora).localeCompare(String(a.dataHora)));
+}
+
+function filterAttempts(attempts, searchParams) {
+  const query = cleanText(searchParams.get("q"), 200).toLowerCase();
+  if (!query) return attempts;
+  return attempts.filter((attempt) => [attempt.profissional, attempt.email, attempt.caso, attempt.instituicao]
+    .some((value) => String(value || "").toLowerCase().includes(query)));
+}
+
+function attemptsToCsv(attempts) {
+  const headers = ["id", ...OSCE_HEADERS, "conversaCompleta"];
+  return [
+    headers.join(";"),
+    ...attempts.map((record) => headers.map((header) => csvCell(
+      header === "conversaCompleta" ? serializeTranscript(record.transcript) : record[header]
+    )).join(";"))
+  ].join("\n");
+}
+
+function serializeTranscript(transcript) {
+  if (!Array.isArray(transcript)) return "";
+  return transcript.map((entry) => `${entry.kind}: ${entry.text}`).join(" | ");
+}
+
+function csvCell(value) {
+  return `"${String(value ?? "").replace(/\r?\n/g, " ").replace(/"/g, '""')}"`;
+}
+
+function sendCsv(res, csv, filename) {
+  res.writeHead(200, {
+    "Content-Type": "text/csv; charset=utf-8",
+    "Content-Disposition": `attachment; filename="${filename}"`,
+    "Cache-Control": "no-store"
+  });
+  res.end(`\ufeff${csv}`);
+}
+
+function sendForbidden(res) {
+  sendJson(res, 403, { error: "Acesso não autorizado para este perfil." });
+}
+
+function cleanText(value, maxLength) {
+  return String(value ?? "").trim().slice(0, maxLength);
+}
+
+function isEmail(value) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
+const OSCE_HEADERS = [
+  "dataHora", "profissional", "profissao", "cidade", "estado", "email",
+  "registroProfissional", "instituicao", "caso", "paciente", "queixa", "nota",
+  "tempoSegundos", "pontuacaoAnamnese", "pontuacaoExameFisico", "pontuacaoHipoteses",
+  "pontuacaoExames", "pontuacaoConduta", "hda", "historiaFamiliar", "historiaMedica",
+  "historiaOdontologica", "habitos", "comunicacao", "fatoresDeRisco", "diagnosticoCorreto",
+  "hipoteseEsperada", "hipotesesMarcadas", "justificativaDiagnostica", "examesFisicosRealizados",
+  "achadosExameFisico", "condutasMarcadas", "urgencia", "perguntasAluno", "ordemObservada",
+  "perguntasOmitidas", "condutasPendentes", "alertasSeguranca", "feedbackTutor",
+  "observacoesAvaliador", "soapS", "soapO", "soapA", "soapP"
+];
 
 async function handleGeminiDialogue(req, res) {
   if (!GEMINI_API_KEY) {
@@ -334,7 +548,13 @@ function serveStatic(req, res) {
   const requestedPath = pathname === "/" ? "/index.html" : pathname;
   const filePath = path.normalize(path.join(PUBLIC_DIR, requestedPath));
 
-  if (!filePath.startsWith(PUBLIC_DIR) || path.basename(filePath) === ".env") {
+  const publicExtensions = new Set(Object.keys(MIME_TYPES));
+  if (
+    !filePath.startsWith(`${PUBLIC_DIR}${path.sep}`) ||
+    pathname.split("/").some((segment) => segment.startsWith(".")) ||
+    !publicExtensions.has(path.extname(filePath)) ||
+    ["server.js"].includes(path.basename(filePath))
+  ) {
     sendJson(res, 403, { error: "Forbidden" });
     return;
   }
@@ -362,7 +582,7 @@ function readJsonBody(req) {
     let raw = "";
     req.on("data", (chunk) => {
       raw += chunk;
-      if (raw.length > 50_000) {
+      if (raw.length > 2_000_000) {
         req.destroy();
         reject(new Error("Request body too large"));
       }
@@ -389,7 +609,7 @@ function applyCors(req, res) {
 
   res.setHeader("Access-Control-Allow-Origin", origin);
   res.setHeader("Access-Control-Allow-Methods", "GET, HEAD, POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
   res.setHeader("Vary", "Origin");
 }
 

@@ -2,7 +2,7 @@
   "name": "examosim",
   "version": "1.0.0",
   "private": true,
-  "description": "Simulador inteligente de anamnese odontológica",
+  "description": "Plataforma educacional de simulação e raciocínio clínico",
   "scripts": {
     "start": "node server.js",
     "check": "node --check server.js && node --check app.js"

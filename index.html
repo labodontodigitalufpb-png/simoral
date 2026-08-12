@@ -3,19 +3,110 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>ExamOSim | Anamnese Odontológica IA</title>
-    <link rel="stylesheet" href="styles.css?v=20260622-responsive-flow-brands-1" />
+    <title>ExamOSim | Raciocínio Clínico</title>
+    <link rel="stylesheet" href="styles.css?v=20260812-central-admin-1" />
   </head>
   <body>
-    <main class="app-shell">
+    <section id="landingPage" class="landing-page">
+      <header class="landing-header">
+        <a class="landing-brand" href="#inicio" aria-label="ExamOSim início">
+          <span class="brand-mark">ES</span>
+          <span><strong>ExamOSim</strong><small>Raciocínio clínico em Estomatologia</small></span>
+        </a>
+        <nav aria-label="Navegação da página inicial">
+          <a href="#como-funciona">Como funciona</a>
+          <a href="#acesso">Acesso</a>
+          <a href="#sobre">Sobre</a>
+        </nav>
+        <div class="app-nav-note"><span>Ambiente educacional</span><p>Treinamento clínico estruturado, sem uso para diagnóstico autônomo.</p></div>
+      </header>
+
+      <main id="inicio" class="landing-main">
+        <section class="landing-hero">
+          <div class="hero-copy">
+            <span class="hero-kicker">Consultório virtual inteligente · OSCE digital</span>
+            <h1>Treine todo o processo de raciocínio clínico em Estomatologia.</h1>
+            <p>Conduza a anamnese, realize o exame físico, organize diagnósticos diferenciais, solicite exames e defina a conduta em casos clínicos interativos.</p>
+            <div class="hero-actions">
+              <a class="hero-primary" href="#acesso">Entrar na plataforma</a>
+              <a class="hero-secondary" href="#como-funciona">Conhecer o simulador</a>
+            </div>
+            <div class="hero-metrics" aria-label="Recursos do ExamOSim">
+              <div><strong>52</strong><span>casos clínicos</span></div>
+              <div><strong>5</strong><span>etapas da consulta</span></div>
+              <div><strong>100</strong><span>pontos por desempenho</span></div>
+            </div>
+          </div>
+          <div id="acesso" class="auth-card">
+            <div class="auth-tabs" role="tablist">
+              <button id="loginTab" class="active" type="button" role="tab" aria-selected="true">Entrar</button>
+              <button id="registerTab" type="button" role="tab" aria-selected="false">Criar conta</button>
+            </div>
+
+            <form id="loginForm" class="auth-form">
+              <div class="role-selector" aria-label="Tipo de acesso">
+                <label><input type="radio" name="loginRole" value="professional" checked /><span>Profissional</span></label>
+                <label><input type="radio" name="loginRole" value="admin" /><span>Administrador</span></label>
+              </div>
+              <div id="loginInstructions" class="auth-instructions">
+                <strong>Acesso profissional</strong>
+                <p>Entre com o e-mail e a senha usados no cadastro. Primeiro acesso? Selecione “Criar conta”.</p>
+              </div>
+              <label><span>E-mail</span><input id="loginEmail" type="email" required autocomplete="email" placeholder="voce@exemplo.com" /></label>
+              <label><span>Senha</span><input id="loginPassword" type="password" required minlength="8" autocomplete="current-password" placeholder="Mínimo de 8 caracteres" /></label>
+              <button class="auth-submit" type="submit">Entrar no ExamOSim</button>
+            </form>
+
+            <form id="registerForm" class="auth-form" hidden>
+              <div class="auth-instructions"><strong>Cadastro profissional</strong><p>Preencha seus dados para criar um perfil individual de treinamento.</p></div>
+              <label><span>Nome completo</span><input id="registerName" type="text" required autocomplete="name" /></label>
+              <label><span>Profissão</span><select id="registerProfession" required><option value="">Selecione</option><option>Medicina</option><option>Odontologia</option><option>Enfermagem</option><option>Fisioterapia</option><option>Fonoaudiologia</option><option>Farmácia</option><option>Nutrição</option><option>Psicologia</option><option>Outra profissão da saúde</option></select></label>
+              <div class="auth-form-row"><label><span>Cidade</span><input id="registerCity" type="text" required /></label><label><span>UF</span><input id="registerState" type="text" maxlength="2" required placeholder="PB" /></label></div>
+              <label><span>E-mail</span><input id="registerEmail" type="email" required autocomplete="email" /></label>
+              <label><span>Senha</span><input id="registerPassword" type="password" minlength="8" required autocomplete="new-password" placeholder="Mínimo de 8 caracteres" /></label>
+              <label><span>Registro profissional <small>opcional</small></span><input id="registerId" type="text" /></label>
+              <label><span>Instituição de vínculo <small>opcional</small></span><input id="registerInstitution" type="text" /></label>
+              <label class="terms-check"><input id="registerTerms" type="checkbox" required /><span>Compreendo que o ExamOSim é uma ferramenta educacional e não substitui avaliação clínica real.</span></label>
+              <button class="auth-submit" type="submit">Criar conta e começar</button>
+            </form>
+            <p id="authStatus" class="auth-status" aria-live="polite"></p>
+          </div>
+        </section>
+
+        <section id="como-funciona" class="landing-section">
+          <div class="landing-section-heading"><span>Jornada de aprendizagem</span><h2>Da entrevista ao feedback educacional.</h2><p>As etapas são liberadas progressivamente para preservar o raciocínio e reduzir pistas artificiais.</p></div>
+          <div class="journey-grid">
+            <article><b>01</b><h3>Anamnese</h3><p>Converse livremente com o paciente e descubra informações conforme suas perguntas.</p></article>
+            <article><b>02</b><h3>Exame físico</h3><p>Escolha regiões, sistemas e técnicas. Os achados aparecem somente quando solicitados.</p></article>
+            <article><b>03</b><h3>Hipóteses</h3><p>Ordene até cinco diagnósticos diferenciais e justifique o raciocínio clínico.</p></article>
+            <article><b>04</b><h3>Exames e conduta</h3><p>Solicite exames de forma criteriosa, interprete resultados e classifique a urgência.</p></article>
+            <article><b>05</b><h3>Feedback</h3><p>Receba pontuação multidimensional, lacunas identificadas e recomendações educacionais.</p></article>
+          </div>
+        </section>
+
+        <section class="access-guide">
+          <article><span>Para profissionais</span><h2>Como acessar</h2><ol><li>Crie sua conta com dados profissionais.</li><li>Entre usando e-mail e senha.</li><li>Complete o perfil e selecione um caso.</li><li>Siga as cinco etapas e salve seu resultado.</li></ol></article>
+          <article class="admin-guide"><span>Para administradores</span><h2>Acesso administrativo</h2><p>Selecione “Administrador” no formulário de login e use as credenciais fornecidas pela coordenação da plataforma.</p><small>As credenciais administrativas são restritas e não são exibidas na página pública.</small></article>
+        </section>
+
+        <section id="sobre" class="landing-section about-simulator">
+          <div><span>Sobre o ExamOSim</span><h2>Raciocínio clínico em Estomatologia, não diagnóstico autônomo.</h2></div>
+          <p>O paciente virtual responde apenas com base no roteiro do caso. Um tutor clínico separado acompanha objetivos, progresso e desempenho. A plataforma foi concebida para educação e pesquisa em saúde, sem substituir atendimento, supervisão ou decisão profissional em pacientes reais.</p>
+        </section>
+      </main>
+      <footer class="landing-footer"><strong>ExamOSim</strong><span>LABODIGIT · UFPB &nbsp;|&nbsp; Estomatologia · UEL</span><span>Uso exclusivamente educacional.</span></footer>
+    </section>
+
+    <main id="simulatorApp" class="app-shell" hidden>
       <aside class="case-panel">
         <div class="brand">
           <span class="brand-mark">ES</span>
           <div>
             <h1>ExamOSim</h1>
-            <p data-i18n="tagline">Simulador inteligente de anamnese odontológica</p>
+            <p data-i18n="tagline">Simulador inteligente de raciocínio clínico</p>
           </div>
         </div>
+        <div class="session-card"><div><small>Sessão atual</small><strong id="sessionUser">Profissional</strong><span id="sessionRole">Profissional de saúde</span></div><button id="logoutBtn" type="button">Sair</button></div>
         <div class="institutional-brands" aria-label="Instituições responsáveis">
           <a href="https://www.ufpb.br/" target="_blank" rel="noreferrer" aria-label="Universidade Federal da Paraíba">
             <img class="institution-logo institution-logo-ufpb" src="assets/brands/ufpb.png" alt="UFPB" />
@@ -26,6 +117,7 @@
           </a>
           <p>LABODIGIT · UFPB &nbsp;|&nbsp; Estomatologia · UEL</p>
         </div>
+        <p class="education-disclaimer">Uso exclusivamente educacional. A plataforma não realiza diagnóstico autônomo nem substitui avaliação de pacientes reais.</p>
 
         <section class="panel-block language-card">
           <div class="section-title">
@@ -40,13 +132,38 @@
 
         <section class="panel-block student-card">
           <div class="section-title">
-            <span data-i18n="student">Aluno</span>
+            <span>Perfil profissional</span>
           </div>
           <form id="studentForm" class="student-form">
-            <input id="studentName" type="text" placeholder="Nome do aluno" aria-label="Nome do aluno" />
-            <input id="studentId" type="text" placeholder="Matrícula" aria-label="Matrícula" />
-            <input id="studentCollege" type="text" placeholder="Faculdade" aria-label="Faculdade" />
+            <input id="studentName" type="text" placeholder="Nome completo" aria-label="Nome completo" />
+            <select id="profession" aria-label="Profissão">
+              <option value="">Selecione a profissão</option>
+              <option>Medicina</option>
+              <option>Odontologia</option>
+              <option>Enfermagem</option>
+              <option>Fisioterapia</option>
+              <option>Fonoaudiologia</option>
+              <option>Farmácia</option>
+              <option>Nutrição</option>
+              <option>Psicologia</option>
+              <option>Outra profissão da saúde</option>
+            </select>
+            <div class="form-row">
+              <input id="city" type="text" placeholder="Cidade" aria-label="Cidade" />
+              <select id="stateRegion" aria-label="Estado">
+                <option value="">UF</option>
+                <option>AC</option><option>AL</option><option>AP</option><option>AM</option><option>BA</option><option>CE</option><option>DF</option><option>ES</option><option>GO</option><option>MA</option><option>MT</option><option>MS</option><option>MG</option><option>PA</option><option>PB</option><option>PR</option><option>PE</option><option>PI</option><option>RJ</option><option>RN</option><option>RS</option><option>RO</option><option>RR</option><option>SC</option><option>SP</option><option>SE</option><option>TO</option>
+              </select>
+            </div>
+            <input id="professionalEmail" type="email" placeholder="E-mail" aria-label="E-mail" />
+            <input id="studentId" type="text" placeholder="Registro profissional (opcional)" aria-label="Registro profissional" />
+            <input id="studentCollege" type="text" placeholder="Instituição de vínculo (opcional)" aria-label="Instituição de vínculo" />
           </form>
+        </section>
+
+        <section class="panel-block dashboard-card">
+          <div class="section-title"><span>Meu desempenho</span></div>
+          <div id="dashboardStats" class="dashboard-stats"></div>
         </section>
 
         <section class="panel-block">
@@ -71,18 +188,43 @@
           <div id="progressList" class="progress-list"></div>
         </section>
 
-        <section class="panel-block">
-          <div class="section-title">
-            <span data-i18n="physicalExam">Exame físico</span>
-          </div>
-          <div id="physicalExamBox" class="physical-exam-box"></div>
-        </section>
       </aside>
 
+      <section id="adminPanel" class="admin-panel" hidden>
+        <header class="admin-panel-header">
+          <div><span>Administração</span><h2>Preenchimentos e avaliações</h2><p>Dados centralizados enviados pelos profissionais ao finalizar cada atendimento.</p></div>
+          <button id="adminExportBtn" class="primary-action" type="button">Baixar CSV geral</button>
+        </header>
+        <div class="admin-toolbar">
+          <label><span>Buscar</span><input id="adminSearch" type="search" placeholder="Profissional, e-mail, caso ou instituição" /></label>
+          <button id="adminRefreshBtn" type="button">Atualizar</button>
+        </div>
+        <div id="adminStats" class="admin-stats"></div>
+        <p id="adminStatus" class="osce-status" aria-live="polite"></p>
+        <div class="admin-table-wrap">
+          <table class="admin-table">
+            <thead><tr><th>Data</th><th>Profissional</th><th>Caso</th><th>Nota</th><th>Tempo</th><th></th></tr></thead>
+            <tbody id="adminAttemptsBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <dialog id="attemptDetailsDialog" class="attempt-dialog">
+        <div class="attempt-dialog-header"><div><span>Avaliação completa</span><h2 id="attemptDetailsTitle">Preenchimento</h2></div><button id="closeAttemptDialogBtn" type="button" aria-label="Fechar">×</button></div>
+        <div id="attemptDetailsContent" class="attempt-details-content"></div>
+      </dialog>
+
       <section class="clinic-stage" aria-label="Consultório virtual">
+        <nav id="phaseNav" class="phase-nav" aria-label="Fases da consulta">
+          <button type="button" data-phase="anamnesis" class="active"><span>1</span>Anamnese</button>
+          <button type="button" data-phase="physicalExam" disabled><span>2</span>Exame físico</button>
+          <button type="button" data-phase="diagnosis" disabled><span>3</span>Diagnóstico</button>
+          <button type="button" data-phase="complementaryExams" disabled><span>4</span>Exames</button>
+          <button type="button" data-phase="conduct" disabled><span>5</span>Conduta</button>
+        </nav>
         <div class="stage-topbar">
           <div>
-            <p class="eyebrow" data-i18n="virtualOffice">Consultório virtual 3D</p>
+            <p class="eyebrow">Consultório virtual inteligente · treinamento educacional</p>
             <h2 id="patientName">Paciente</h2>
           </div>
           <div class="vitals">
@@ -93,19 +235,25 @@
 
         <div class="room patient-photo-stage">
           <div class="avatar photo-avatar" id="avatar">
-            <img id="patientImage" src="" alt="Paciente sentado na cadeira odontológica" />
+            <img id="patientImage" src="" alt="Paciente no consultório virtual" />
           </div>
         </div>
 
-        <div class="chat-card">
-          <div class="voice-toolbar" aria-label="Controles de áudio">
-            <label class="voice-toggle">
-              <input id="voiceToggle" type="checkbox" />
-              <span data-i18n="patientVoice">Voz do paciente</span>
-            </label>
-            <button id="micBtn" class="icon-action" type="button" aria-label="Falar pergunta">Mic</button>
-            <span id="voiceStatus">Microfone disponível no Chrome/Edge.</span>
+        <section id="clinicalImagePanel" class="clinical-image-panel" hidden>
+          <div class="clinical-image-copy">
+            <span>Imagem clínica liberada</span>
+            <strong id="clinicalImageTitle">Inspeção da lesão</strong>
+            <p id="clinicalImageCaption"></p>
+            <small id="clinicalImageSource"></small>
           </div>
+          <div class="clinical-image-media">
+            <img id="clinicalImage" src="" alt="Imagem clínica da lesão" />
+            <button id="nextClinicalImageBtn" type="button" hidden>Próxima imagem</button>
+          </div>
+        </section>
+
+        <div class="chat-card">
+          <div class="consultation-notice">Anamnese, exame físico, diagnóstico diferencial, exames complementares e conduta.</div>
           <div id="chatLog" class="chat-log" aria-live="polite"></div>
           <form id="chatForm" class="chat-form">
             <input
@@ -121,28 +269,52 @@
       </section>
 
       <aside class="reasoning-panel">
-        <section class="panel-block anamnesis-flow-card">
+        <section id="anamnesisSection" class="panel-block anamnesis-flow-card phase-section active">
           <div class="section-title">
             <span data-i18n="anamnesisSequence">Sequência da anamnese</span>
           </div>
           <div id="flowList" class="flow-list"></div>
+          <button id="proceedExamBtn" class="phase-action" type="button">Prosseguir para exame físico</button>
         </section>
 
-        <section class="panel-block">
+        <section id="physicalExamSection" class="panel-block phase-section locked">
+          <div class="section-title">
+            <span data-i18n="physicalExam">Exame físico</span>
+          </div>
+          <p class="section-help">Selecione as regiões, sinais vitais e técnicas que deseja avaliar. Os achados serão revelados somente após a solicitação.</p>
+          <div id="physicalExamOptions" class="exam-options"></div>
+          <div id="physicalExamBox" class="physical-exam-box"></div>
+          <button id="completeExamBtn" class="phase-action" type="button">Concluir exame físico</button>
+        </section>
+
+        <section id="diagnosisSection" class="panel-block phase-section locked">
           <div class="section-title">
             <span data-i18n="diagnosticHypotheses">Hipóteses diagnósticas</span>
+            <small>até 5</small>
           </div>
+          <p class="section-help">Selecione em ordem decrescente de probabilidade e justifique seu raciocínio.</p>
           <div id="hypothesisList" class="choice-list"></div>
+          <label class="clinical-justification"><span>Justificativa clínica</span><textarea id="diagnosisJustification" rows="4" placeholder="Relacione história, fatores de risco e achados do exame físico."></textarea></label>
+          <button id="proceedExamsBtn" class="phase-action" type="button">Definir exames complementares</button>
         </section>
 
-        <section class="panel-block">
+        <section id="examsSection" class="panel-block phase-section locked">
           <div class="section-title">
-            <span data-i18n="examsConduct">Exames e conduta</span>
+            <span>Exames complementares</span>
           </div>
+          <p class="section-help">Solicite apenas os exames necessários. O resultado será liberado depois da seleção.</p>
           <div id="actionList" class="choice-list"></div>
+          <div id="examResults" class="exam-results"></div>
+          <button id="proceedConductBtn" class="phase-action" type="button">Prosseguir para conduta</button>
         </section>
 
-        <section class="panel-block">
+        <section id="conductSection" class="panel-block phase-section locked">
+          <div class="section-title"><span>Conduta e urgência</span></div>
+          <div id="conductList" class="choice-list"></div>
+          <label class="clinical-justification"><span>Classificação da urgência</span><select id="urgencySelect"><option value="">Selecione</option><option>Imediata</option><option>Em até 24 horas</option><option>Em poucos dias</option><option>Eletiva</option><option>Acompanhamento</option></select></label>
+        </section>
+
+        <section class="panel-block evaluation-section">
           <div class="section-title">
             <span data-i18n="evaluation">Avaliação</span>
           </div>
@@ -154,8 +326,8 @@
           <div class="osce-actions" aria-label="Exportação OSCE">
             <button id="saveOsceBtn" type="button">Salvar OSCE</button>
             <button id="exportCurrentOsceBtn" type="button">CSV atual</button>
-            <button id="exportAllOsceBtn" type="button">CSV geral</button>
-            <button id="clearOsceBtn" type="button">Limpar</button>
+            <button id="exportAllOsceBtn" type="button" hidden>CSV geral</button>
+            <button id="clearOsceBtn" type="button" hidden>Limpar</button>
           </div>
           <p id="osceStatus" class="osce-status" aria-live="polite"></p>
           <div id="report" class="report"></div>
@@ -163,6 +335,6 @@
       </aside>
     </main>
 
-    <script src="app.js?v=20260622-render-backend-1"></script>
+    <script src="app.js?v=20260812-central-admin-1"></script>
   </body>
 </html>

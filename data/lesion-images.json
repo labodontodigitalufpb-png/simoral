@@ -1,0 +1,151 @@
+{
+  "carcinoma espinocelular": {
+    "images": [
+      { "src": "assets/lesions/book/squamous-cell-carcinoma-1.jpeg", "caption": "Carcinoma de células escamosas invasivo em assoalho/rebordo alveolar.", "page": 122 },
+      { "src": "assets/lesions/book/squamous-cell-carcinoma-2.jpeg", "caption": "Carcinoma de células escamosas com apresentação exofítica em base de língua.", "page": 122 },
+      { "src": "assets/lesions/book/squamous-cell-carcinoma-3.jpeg", "caption": "Carcinoma de células escamosas em borda lateral de língua.", "page": 122 }
+    ]
+  },
+  "carcinoma de celulas escamosas oral": {
+    "images": [
+      { "src": "assets/lesions/book/squamous-cell-carcinoma-3.jpeg", "caption": "Carcinoma de células escamosas em borda lateral de língua.", "page": 122 },
+      { "src": "assets/lesions/book/squamous-cell-carcinoma-1.jpeg", "caption": "Carcinoma de células escamosas invasivo em assoalho/rebordo alveolar.", "page": 122 }
+    ]
+  },
+  "leucoplasia oral": {
+    "images": [
+      { "src": "assets/lesions/book/leukoplakia-1.jpeg", "caption": "Leucoplasia homogênea.", "page": 62 },
+      { "src": "assets/lesions/book/leukoplakia-2.jpeg", "caption": "Leucoplasia heterogênea com áreas vermelhas entremeadas.", "page": 62 },
+      { "src": "assets/lesions/book/leukoplakia-3.jpeg", "caption": "Leucoplasia heterogênea em mucosa oral.", "page": 62 }
+    ]
+  },
+  "leucoplasia displasica": {
+    "images": [
+      { "src": "assets/lesions/book/leukoplakia-microinvasive.jpeg", "caption": "Leucoplasia em paciente tabagista crônico com alteração microscópica microinvasiva.", "page": 14 },
+      { "src": "assets/lesions/book/leukoplakia-2.jpeg", "caption": "Leucoplasia heterogênea com áreas vermelhas entremeadas.", "page": 62 }
+    ]
+  },
+  "candidiase oral associada a protese": {
+    "images": [
+      { "src": "assets/lesions/book/denture-stomatitis.jpeg", "caption": "Estomatite protética com mancha avermelhada em palato de usuário de prótese removível.", "page": 39 }
+    ]
+  },
+  "estomatite protetica associada a candidiase": {
+    "images": [
+      { "src": "assets/lesions/book/denture-stomatitis.jpeg", "caption": "Estomatite protética em área chapeável do palato.", "page": 39 }
+    ]
+  },
+  "candidiase pseudomembranosa": {
+    "images": [
+      { "src": "assets/lesions/book/pseudomembranous-candidosis.jpeg", "caption": "Candidose pseudomembranosa com placas brancas removíveis à raspagem.", "page": 66 }
+    ]
+  },
+  "liquen plano oral erosivo": {
+    "images": [
+      { "src": "assets/lesions/book/erosive-lichen-planus-1.jpeg", "caption": "Líquen plano erosivo com áreas erosivas, ulceradas e estrias esbranquiçadas.", "page": 49 },
+      { "src": "assets/lesions/book/erosive-lichen-planus-2.jpeg", "caption": "Líquen plano erosivo em mucosa oral.", "page": 49 },
+      { "src": "assets/lesions/book/desquamative-gingivitis.jpeg", "caption": "Manifestação em gengivite descamativa com erosões e estrias brancas.", "page": 49 }
+    ]
+  },
+  "liquen plano oral": {
+    "images": [
+      { "src": "assets/lesions/book/oral-lichen-planus-1.jpeg", "caption": "Líquen plano com estrias de Wickham e áreas erosivas isoladas.", "page": 64 },
+      { "src": "assets/lesions/book/oral-lichen-planus-2.jpeg", "caption": "Líquen plano oral reticular.", "page": 64 }
+    ]
+  },
+  "estomatite aftosa recorrente menor": {
+    "images": [
+      { "src": "assets/lesions/book/minor-aphtha.jpeg", "caption": "Afta menor com ulceração central circundada por halo eritematoso.", "page": 90 }
+    ]
+  },
+  "mucocele": {
+    "images": [
+      { "src": "assets/lesions/book/mucocele.jpeg", "caption": "Mucocele em lábio inferior de paciente jovem.", "page": 106 }
+    ]
+  },
+  "ranula": {
+    "images": [
+      { "src": "assets/lesions/book/ranula.jpeg", "caption": "Rânula de superfície translúcida em assoalho oral.", "page": 106 }
+    ]
+  },
+  "penfigo vulgar": {
+    "images": [
+      { "src": "assets/lesions/book/pemphigus-vulgar.jpeg", "caption": "Pênfigo vulgar com manifestações ulceroerosivas precedidas por bolhas.", "page": 107 },
+      { "src": "assets/lesions/book/pemphigus-vulgar-after-treatment.jpeg", "caption": "Mesmo caso após início da terapia sistêmica descrita no livro.", "page": 107 }
+    ]
+  },
+  "penfigoide de membranas mucosas": {
+    "images": [
+      { "src": "assets/lesions/book/mucous-membrane-pemphigoid-1.jpeg", "caption": "Lesões ulcerobolhosas com diagnóstico microscópico de penfigoide.", "page": 108 },
+      { "src": "assets/lesions/book/mucous-membrane-pemphigoid-2.jpeg", "caption": "Manifestação oral de penfigoide.", "page": 108 }
+    ]
+  },
+  "lingua geografica": {
+    "images": [
+      { "src": "assets/lesions/book/geographic-tongue-1.jpeg", "caption": "Língua geográfica com áreas erosivas circundadas por bordas brancas.", "page": 46 },
+      { "src": "assets/lesions/book/geographic-tongue-2.jpeg", "caption": "Áreas migratórias de língua geográfica.", "page": 46 }
+    ]
+  },
+  "queilite actinica": {
+    "images": [
+      { "src": "assets/lesions/book/actinic-cheilitis.jpeg", "caption": "Queilite actínica com áreas erosivas e placas brancas em vermelhão labial.", "page": 50 }
+    ]
+  },
+  "paracoccidioidomicose": {
+    "images": [
+      { "src": "assets/lesions/book/paracoccidioidomycosis.jpeg", "caption": "Lesão ulcerada granular e moriforme em palato/rebordo alveolar.", "page": 95 }
+    ]
+  },
+  "granuloma piogenico gravidico": {
+    "images": [
+      { "src": "assets/lesions/book/pyogenic-granuloma.jpeg", "caption": "Granuloma piogênico gengival de aspecto ulcerado e vascularizado.", "page": 76 }
+    ]
+  },
+  "papiloma escamoso oral": {
+    "images": [
+      { "src": "assets/lesions/book/squamous-papilloma.jpeg", "caption": "Papiloma escamoso oral com superfície papilar e ceratótica.", "page": 75 }
+    ]
+  },
+  "carcinoma mucoepidermoide": {
+    "images": [
+      { "src": "assets/lesions/book/mucoepidermoid-carcinoma.jpeg", "caption": "Carcinoma mucoepidermoide em rebordo alveolar/trígono retromolar.", "page": 120 }
+    ]
+  },
+  "adenoma pleomorfico": {
+    "images": [
+      { "src": "assets/lesions/book/pleomorphic-adenoma-oral.jpeg", "caption": "Adenoma pleomórfico oral, recoberto por mucosa normal.", "page": 117 },
+      { "src": "assets/lesions/book/pleomorphic-adenoma-parotid.jpeg", "caption": "Adenoma pleomórfico em parótida.", "page": 117 }
+    ]
+  },
+  "sialolitiase": {
+    "images": [
+      { "src": "assets/lesions/book/sialolith-clinical.jpeg", "caption": "Sialólito em assoalho bucal.", "page": 84 },
+      { "src": "assets/lesions/book/sialolith-radiograph.jpeg", "caption": "Calcificação de tecido mole em radiografia oclusal.", "page": 84 }
+    ]
+  },
+  "fibroma traumatico": {
+    "images": [
+      { "src": "assets/lesions/book/fibrous-hyperplasia-1.jpeg", "caption": "Hiperplasia fibrosa nodular em área sujeita a traumatismo oclusal.", "page": 73 }
+    ]
+  },
+  "hiperplasia fibrosa inflamatoria": {
+    "images": [
+      { "src": "assets/lesions/book/fibrous-hyperplasia-2.jpeg", "caption": "Lesão fibrosa associada à irritação crônica por prótese.", "page": 73 }
+    ]
+  },
+  "lesao periferica de celulas gigantes": {
+    "images": [
+      { "src": "assets/lesions/book/peripheral-giant-cell-lesion.jpeg", "caption": "Lesão periférica de células gigantes em gengiva maxilar.", "page": 77 }
+    ]
+  },
+  "fibroma ossificante periferico": {
+    "images": [
+      { "src": "assets/lesions/book/peripheral-ossifying-fibroma.jpeg", "caption": "Fibroma ossificante periférico em gengiva maxilar.", "page": 78 }
+    ]
+  },
+  "ulcera traumatica": {
+    "images": [
+      { "src": "assets/lesions/book/traumatic-ulcer.jpeg", "caption": "Ulceração traumática em gengiva palatina.", "page": 91 }
+    ]
+  }
+}
