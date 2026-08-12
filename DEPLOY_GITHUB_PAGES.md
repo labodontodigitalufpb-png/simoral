@@ -35,4 +35,21 @@ Para usar Gemini com seguranca em acesso publico, publique tambem um backend sep
 
 ## Exportacao OSCE
 
-A exportacao OSCE em CSV funciona no GitHub Pages porque roda localmente no navegador. Os registros salvos ficam no `localStorage` do navegador usado pelo avaliador ate serem exportados ou limpos.
+O CSV atual continua sendo gerado no navegador. Os registros gerais, porém, são enviados ao backend configurado em `app.js` e o CSV geral é baixado pelo painel administrativo através de uma rota autenticada.
+
+No serviço que hospeda `server.js`, configure obrigatoriamente:
+
+```text
+ADMIN_EMAIL=administrador@instituicao.br
+ADMIN_PASSWORD=uma-senha-forte
+SESSION_SECRET=uma-chave-aleatoria-longa
+DATA_FILE=/caminho/do/volume/examosim-db.json
+```
+
+O caminho de `DATA_FILE` deve estar em um volume persistente. Sem isso, plataformas com sistema de arquivos efêmero podem perder os dados ao reiniciar ou publicar uma nova versão.
+
+### Render gratuito
+
+O `render.yaml` configura o backend Node no plano gratuito e solicita os segredos `ADMIN_EMAIL`, `ADMIN_PASSWORD` e `GEMINI_API_KEY`. O `SESSION_SECRET` é gerado automaticamente pelo Render.
+
+O plano gratuito é adequado para demonstração, mas entra em suspensão após períodos sem tráfego e não fornece disco persistente. Contas e avaliações armazenadas no arquivo JSON podem ser perdidas em reinicializações ou novos deploys. Para uso real, conecte o backend a um banco PostgreSQL externo ou utilize um serviço Render com disco persistente.

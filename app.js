@@ -34,6 +34,10 @@ const state = {
   clinicalImageIndex: 0,
   diagnosisOrder: [],
   startedAt: null,
+  currentAttemptId: null,
+  sessionToken: sessionStorage.getItem("examosim.token") || "",
+  serverRecords: [],
+  adminAttempts: [],
   student: {
     name: "",
     id: "",
@@ -123,8 +127,34 @@ const authEls = {
   logoutBtn: document.querySelector("#logoutBtn")
 };
 
-const LOCAL_ADMIN_EMAIL = "admin@examosim.local";
-const LOCAL_ADMIN_PASSWORD = "Admin@123";
+const adminEls = {
+  panel: document.querySelector("#adminPanel"),
+  exportBtn: document.querySelector("#adminExportBtn"),
+  search: document.querySelector("#adminSearch"),
+  refreshBtn: document.querySelector("#adminRefreshBtn"),
+  stats: document.querySelector("#adminStats"),
+  status: document.querySelector("#adminStatus"),
+  body: document.querySelector("#adminAttemptsBody"),
+  dialog: document.querySelector("#attemptDetailsDialog"),
+  dialogTitle: document.querySelector("#attemptDetailsTitle"),
+  dialogContent: document.querySelector("#attemptDetailsContent"),
+  closeDialogBtn: document.querySelector("#closeAttemptDialogBtn")
+};
+
+async function apiRequest(path, options = {}) {
+  const headers = { ...(options.headers || {}) };
+  if (options.body && !headers["Content-Type"]) headers["Content-Type"] = "application/json";
+  if (state.sessionToken) headers.Authorization = `Bearer ${state.sessionToken}`;
+  const response = await fetch(apiUrl(path), { ...options, headers });
+  const contentType = response.headers.get("content-type") || "";
+  const payload = contentType.includes("application/json") ? await response.json() : await response.blob();
+  if (!response.ok) {
+    const error = new Error(payload?.error || "Não foi possível comunicar com o servidor.");
+    error.status = response.status;
+    throw error;
+  }
+  return payload;
+}
 
 const I18N = {
   pt: {
@@ -1842,11 +1872,15 @@ async function boot() {
   ]);
   state.cases = await response.json();
   state.lesionImageLibrary = lesionImageResponse.ok ? await lesionImageResponse.json() : {};
-  if (!sessionStorage.getItem("examosim.session")) restoreProfessionalProfile();
+  if (!state.sessionToken) restoreProfessionalProfile();
   renderStaticText();
   renderDashboard();
   renderCaseOptions();
   loadCase(state.cases[0].id);
+  if (state.sessionRole === "professional" && state.sessionToken) {
+    refreshMyAttempts();
+    migrateLocalRecords();
+  }
 }
 
 function renderCaseOptions() {
@@ -1883,6 +1917,7 @@ function loadCase(caseId) {
   state.clinicalImageIndex = 0;
   state.diagnosisOrder = [];
   state.startedAt = Date.now();
+  state.currentAttemptId = crypto.randomUUID();
   if (els.osceStatus) els.osceStatus.textContent = "";
   if (els.osceNotes) els.osceNotes.value = "";
   if (els.diagnosisJustification) els.diagnosisJustification.value = "";
@@ -3865,7 +3900,7 @@ els.phaseNav?.querySelectorAll("[data-phase]").forEach((button) => {
   });
 });
 
-els.finishBtn.addEventListener("click", () => {
+els.finishBtn.addEventListener("click", async () => {
   if (!state.unlockedPhases.has("conduct")) {
     setOsceStatus("Conclua as etapas clínicas antes de finalizar o caso.");
     return;
@@ -3873,7 +3908,8 @@ els.finishBtn.addEventListener("click", () => {
   const report = evaluateCase();
   state.lastReport = report;
   renderReport(report);
-  setOsceStatus("Avaliação gerada. Salve ou exporte o registro OSCE.");
+  setOsceStatus("Avaliação gerada. Enviando ao servidor...");
+  await saveCurrentAttempt(report);
 });
 
 function evaluateCase() {
@@ -4080,15 +4116,10 @@ function starRating(score) {
   return `${"★".repeat(safeScore)}${"☆".repeat(5 - safeScore)}`;
 }
 
-els.saveOsceBtn?.addEventListener("click", () => {
+els.saveOsceBtn?.addEventListener("click", async () => {
   const report = ensureCurrentReport();
   if (!report) return;
-  const record = buildOsceRecord(report);
-  const records = loadOsceRecords();
-  records.push(record);
-  saveOsceRecords(records);
-  renderDashboard();
-  setOsceStatus(`Registro OSCE salvo. Total local: ${records.length}.`);
+  await saveCurrentAttempt(report);
 });
 
 els.exportCurrentOsceBtn?.addEventListener("click", () => {
@@ -4099,13 +4130,7 @@ els.exportCurrentOsceBtn?.addEventListener("click", () => {
 });
 
 els.exportAllOsceBtn?.addEventListener("click", () => {
-  const records = loadOsceRecords();
-  if (!records.length) {
-    setOsceStatus("Nenhum registro OSCE salvo para exportar.");
-    return;
-  }
-  downloadOsceCsv(records, "examosim-osce-registros.csv");
-  setOsceStatus(`${records.length} registros OSCE exportados em CSV.`);
+  setOsceStatus("A exportação geral está disponível exclusivamente no painel administrativo.");
 });
 
 els.clearOsceBtn?.addEventListener("click", () => {
@@ -4132,6 +4157,7 @@ function buildOsceRecord(report) {
   };
   const studentQuestions = state.transcript.filter((entry) => entry.kind === "student").length;
   return {
+    attemptId: state.currentAttemptId || crypto.randomUUID(),
     dataHora: new Date().toISOString(),
     profissional: state.student.name || "",
     profissao: state.student.profession || "",
@@ -4175,8 +4201,34 @@ function buildOsceRecord(report) {
     soapS: report.soap.S,
     soapO: report.soap.O,
     soapA: report.soap.A,
-    soapP: report.soap.P
+    soapP: report.soap.P,
+    transcript: state.transcript.map((entry) => ({ kind: entry.kind, text: entry.text }))
   };
+}
+
+async function saveCurrentAttempt(report) {
+  if (state.sessionRole !== "professional" || !state.sessionToken) {
+    setOsceStatus("Entre como profissional para salvar a avaliação no servidor.");
+    return false;
+  }
+  try {
+    const { attempt } = await apiRequest("/api/attempts", {
+      method: "POST",
+      body: JSON.stringify({ record: buildOsceRecord(report) })
+    });
+    const index = state.serverRecords.findIndex((item) => item.id === attempt.id);
+    if (index >= 0) state.serverRecords[index] = attempt;
+    else state.serverRecords.push(attempt);
+    renderDashboard();
+    setOsceStatus("Avaliação salva no servidor e disponível para a administração.");
+    return true;
+  } catch (error) {
+    const pending = loadOsceRecords().filter((item) => item.attemptId !== state.currentAttemptId);
+    pending.push(buildOsceRecord(report));
+    saveOsceRecords(pending);
+    setOsceStatus(`Falha no envio. Uma cópia pendente ficou neste navegador: ${error.message}`);
+    return false;
+  }
 }
 
 function loadOsceRecords() {
@@ -4237,11 +4289,14 @@ function downloadOsceCsv(records, filename) {
     "soapS",
     "soapO",
     "soapA",
-    "soapP"
+    "soapP",
+    "conversaCompleta"
   ];
   const csv = [
     headers.join(";"),
-    ...records.map((record) => headers.map((header) => csvCell(record[header])).join(";"))
+    ...records.map((record) => headers.map((header) => csvCell(
+      header === "conversaCompleta" ? serializeTranscript(record.transcript) : record[header]
+    )).join(";"))
   ].join("\n");
   const blob = new Blob([`\ufeff${csv}`], { type: "text/csv;charset=utf-8" });
   const url = URL.createObjectURL(blob);
@@ -4257,6 +4312,11 @@ function downloadOsceCsv(records, filename) {
 function csvCell(value) {
   const text = String(value ?? "").replace(/\r?\n/g, " ").replace(/"/g, '""');
   return `"${text}"`;
+}
+
+function serializeTranscript(transcript) {
+  if (!Array.isArray(transcript)) return "";
+  return transcript.map((entry) => `${transcriptRole(entry.kind)}: ${entry.text}`).join(" | ");
 }
 
 function setOsceStatus(message) {
@@ -4298,23 +4358,27 @@ async function handleLogin(event) {
   const role = document.querySelector("[name='loginRole']:checked")?.value || "professional";
   const email = authEls.loginEmail.value.trim().toLowerCase();
   const password = authEls.loginPassword.value;
-
-  if (role === "admin") {
-    if (email !== LOCAL_ADMIN_EMAIL || password !== LOCAL_ADMIN_PASSWORD) {
-      setAuthStatus("Credenciais administrativas inválidas.", "error");
-      return;
+  setAuthStatus("Verificando credenciais...");
+  try {
+    let result;
+    try {
+      result = await apiRequest("/api/auth/login", {
+        method: "POST",
+        body: JSON.stringify({ role, email, password })
+      });
+    } catch (error) {
+      const legacy = role === "professional" ? loadLocalAccount() : null;
+      if (error.status !== 401 || !legacy || legacy.email !== email) throw error;
+      result = await apiRequest("/api/auth/register", {
+        method: "POST",
+        body: JSON.stringify({ profile: legacy.profile, password })
+      });
     }
-    const profile = { name: "Administrador principal", profession: "Administração", city: "", stateRegion: "", email, id: "", college: "ExamOSim" };
-    startSession("admin", profile);
-    return;
+    startSession(result.role, result.profile, result.token);
+    setAuthStatus("");
+  } catch (error) {
+    setAuthStatus(error.message, "error");
   }
-
-  const account = loadLocalAccount();
-  if (!account || account.email !== email || account.passwordHash !== await hashPassword(password)) {
-    setAuthStatus("E-mail ou senha inválidos. Se ainda não possui conta, faça seu cadastro.", "error");
-    return;
-  }
-  startSession("professional", account.profile);
 }
 
 async function handleRegistration(event) {
@@ -4328,42 +4392,57 @@ async function handleRegistration(event) {
     id: authEls.registerId.value.trim(),
     college: authEls.registerInstitution.value.trim()
   };
-  const account = {
-    email: profile.email,
-    passwordHash: await hashPassword(authEls.registerPassword.value),
-    profile
-  };
-  localStorage.setItem("examosim.localAccount", JSON.stringify(account));
-  localStorage.setItem("examosim.professionalProfile", JSON.stringify(profile));
-  setAuthStatus("Conta criada. Abrindo o simulador...", "success");
-  startSession("professional", profile);
+  try {
+    setAuthStatus("Criando conta no servidor...");
+    const result = await apiRequest("/api/auth/register", {
+      method: "POST",
+      body: JSON.stringify({ profile, password: authEls.registerPassword.value })
+    });
+    localStorage.removeItem("examosim.localAccount");
+    setAuthStatus("Conta criada. Abrindo o simulador...", "success");
+    startSession(result.role, result.profile, result.token);
+  } catch (error) {
+    setAuthStatus(error.message, "error");
+  }
 }
 
-function startSession(role, profile, persist = true) {
+function startSession(role, profile, token = state.sessionToken, persist = true) {
   state.sessionRole = role;
+  state.sessionToken = token;
   state.student = { ...state.student, ...profile };
   syncProfessionalForm();
   if (persist) {
-    sessionStorage.setItem("examosim.session", JSON.stringify({ role, email: profile.email, name: profile.name }));
+    sessionStorage.setItem("examosim.token", token);
   }
   authEls.sessionUser.textContent = profile.name || (role === "admin" ? "Administrador" : "Profissional");
   authEls.sessionRole.textContent = role === "admin" ? "Acesso administrativo" : profile.profession || "Profissional de saúde";
   els.studentForm.querySelectorAll("input, select").forEach((field) => {
     field.disabled = role === "admin";
   });
+  els.professionalEmail.disabled = true;
   authEls.landingPage.hidden = true;
   authEls.simulatorApp.hidden = false;
+  authEls.simulatorApp.classList.toggle("admin-mode", role === "admin");
+  adminEls.panel.hidden = role !== "admin";
   document.body.classList.add("simulator-open");
-  if (state.currentCase) {
-    renderChart();
-    renderDashboard();
+  if (role === "admin") {
+    loadAdminAttempts();
+  } else {
+    if (state.currentCase) renderChart();
+    refreshMyAttempts();
+    migrateLocalRecords();
   }
   window.scrollTo({ top: 0, behavior: "instant" });
 }
 
 function logout() {
-  sessionStorage.removeItem("examosim.session");
+  sessionStorage.removeItem("examosim.token");
+  state.sessionToken = "";
+  state.serverRecords = [];
+  state.adminAttempts = [];
   authEls.simulatorApp.hidden = true;
+  authEls.simulatorApp.classList.remove("admin-mode");
+  adminEls.panel.hidden = true;
   authEls.landingPage.hidden = false;
   authEls.loginPassword.value = "";
   document.body.classList.remove("simulator-open");
@@ -4371,18 +4450,16 @@ function logout() {
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
-function restoreSession() {
+async function restoreSession() {
+  const token = sessionStorage.getItem("examosim.token");
+  if (!token) return;
+  state.sessionToken = token;
   try {
-    const session = JSON.parse(sessionStorage.getItem("examosim.session") || "null");
-    if (!session) return;
-    if (session.role === "admin") {
-      startSession("admin", { name: "Administrador principal", profession: "Administração", email: LOCAL_ADMIN_EMAIL, city: "", stateRegion: "", id: "", college: "ExamOSim" }, false);
-      return;
-    }
-    const account = loadLocalAccount();
-    if (account?.profile) startSession("professional", account.profile, false);
+    const result = await apiRequest("/api/auth/me");
+    startSession(result.role, result.profile, token, false);
   } catch (error) {
-    sessionStorage.removeItem("examosim.session");
+    sessionStorage.removeItem("examosim.token");
+    state.sessionToken = "";
   }
 }
 
@@ -4392,12 +4469,6 @@ function loadLocalAccount() {
   } catch (error) {
     return null;
   }
-}
-
-async function hashPassword(password) {
-  const bytes = new TextEncoder().encode(password);
-  const digest = await crypto.subtle.digest("SHA-256", bytes);
-  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
 function setAuthStatus(message, type = "") {
@@ -4427,10 +4498,10 @@ function restoreProfessionalProfile() {
 
 function renderDashboard() {
   if (!els.dashboardStats) return;
-  const records = loadOsceRecords();
+  const records = state.serverRecords;
   const scores = records.map((record) => Number(record.nota)).filter(Number.isFinite);
   const average = scores.length ? Math.round(scores.reduce((sum, score) => sum + score, 0) / scores.length) : 0;
-  const last = records.at(-1);
+  const last = records[0];
   els.dashboardStats.innerHTML = `
     <div><strong>${state.cases.length || 52}</strong><span>casos disponíveis</span></div>
     <div><strong>${records.length}</strong><span>concluídos</span></div>
@@ -4438,6 +4509,149 @@ function renderDashboard() {
     <p>${last ? `Último caso: ${last.caso || "caso clínico"} · ${last.nota}/100` : "Conclua um caso para iniciar seu histórico de evolução."}</p>
   `;
 }
+
+async function refreshMyAttempts() {
+  if (state.sessionRole !== "professional" || !state.sessionToken) return;
+  try {
+    const result = await apiRequest("/api/attempts/mine");
+    state.serverRecords = result.attempts;
+    renderDashboard();
+  } catch (error) {
+    setOsceStatus(error.message);
+  }
+}
+
+async function migrateLocalRecords() {
+  const records = loadOsceRecords();
+  if (!records.length || state.sessionRole !== "professional") return;
+  let migrated = 0;
+  for (const record of records) {
+    try {
+      record.attemptId ||= crypto.randomUUID();
+      await apiRequest("/api/attempts", { method: "POST", body: JSON.stringify({ record }) });
+      migrated += 1;
+    } catch (error) {
+      setOsceStatus(`Não foi possível migrar o histórico local: ${error.message}`);
+      return;
+    }
+  }
+  localStorage.removeItem("examosim.osceRecords");
+  await refreshMyAttempts();
+  setOsceStatus(`${migrated} registro(s) local(is) migrado(s) para o servidor.`);
+}
+
+async function loadAdminAttempts() {
+  if (state.sessionRole !== "admin") return;
+  const query = adminEls.search.value.trim();
+  adminEls.status.textContent = "Carregando preenchimentos...";
+  try {
+    const result = await apiRequest(`/api/admin/attempts${query ? `?q=${encodeURIComponent(query)}` : ""}`);
+    state.adminAttempts = result.attempts;
+    renderAdminAttempts();
+    adminEls.status.textContent = `${result.attempts.length} preenchimento(s) encontrado(s).`;
+  } catch (error) {
+    adminEls.status.textContent = error.message;
+  }
+}
+
+function renderAdminAttempts() {
+  const attempts = state.adminAttempts;
+  const scores = attempts.map((item) => Number(item.nota)).filter(Number.isFinite);
+  const average = scores.length ? Math.round(scores.reduce((sum, score) => sum + score, 0) / scores.length) : 0;
+  const professionals = new Set(attempts.map((item) => item.email).filter(Boolean)).size;
+  adminEls.stats.innerHTML = `
+    <div><strong>${attempts.length}</strong><span>avaliações</span></div>
+    <div><strong>${professionals}</strong><span>profissionais</span></div>
+    <div><strong>${scores.length ? average : "—"}</strong><span>média geral</span></div>
+  `;
+  adminEls.body.innerHTML = attempts.length
+    ? attempts.map((attempt) => `
+      <tr>
+        <td>${escapeHtml(formatDateTime(attempt.dataHora))}</td>
+        <td><strong>${escapeHtml(attempt.profissional || "—")}</strong><br><small>${escapeHtml(attempt.email || "")}</small></td>
+        <td>${escapeHtml(attempt.caso || "—")}</td>
+        <td>${escapeHtml(attempt.nota || "0")}/100</td>
+        <td>${escapeHtml(formatDuration(attempt.tempoSegundos))}</td>
+        <td><button type="button" data-attempt-id="${escapeHtml(attempt.id)}">Ver detalhes</button></td>
+      </tr>`).join("")
+    : '<tr><td colspan="6">Nenhuma avaliação encontrada.</td></tr>';
+}
+
+function showAttemptDetails(attemptId) {
+  const attempt = state.adminAttempts.find((item) => item.id === attemptId);
+  if (!attempt) return;
+  adminEls.dialogTitle.textContent = `${attempt.profissional || "Profissional"} · ${attempt.caso || "Caso clínico"}`;
+  const ignored = new Set(["id", "userId", "transcript"]);
+  const labels = {
+    dataHora: "Data e hora", profissional: "Profissional", profissao: "Profissão", cidade: "Cidade",
+    estado: "UF", email: "E-mail", registroProfissional: "Registro profissional", instituicao: "Instituição",
+    caso: "Caso", paciente: "Paciente", queixa: "Queixa", nota: "Nota", tempoSegundos: "Tempo (segundos)",
+    observacoesAvaliador: "Observações", justificativaDiagnostica: "Justificativa diagnóstica",
+    hipotesesMarcadas: "Hipóteses marcadas", condutasMarcadas: "Condutas", feedbackTutor: "Feedback do tutor"
+  };
+  const fields = Object.entries(attempt).filter(([key]) => !ignored.has(key));
+  const transcript = Array.isArray(attempt.transcript) ? attempt.transcript : [];
+  adminEls.dialogContent.innerHTML = `
+    <div class="attempt-details-grid">${fields.map(([key, value]) => `
+      <div><small>${escapeHtml(labels[key] || key)}</small><span>${escapeHtml(value === "" || value == null ? "—" : value)}</span></div>`).join("")}
+    </div>
+    <section class="attempt-transcript"><h3>Conversa completa</h3>${transcript.length
+      ? transcript.map((entry) => `<p><strong>${escapeHtml(transcriptRole(entry.kind))}:</strong> ${escapeHtml(entry.text)}</p>`).join("")
+      : "<p>Nenhuma conversa registrada nesta avaliação.</p>"}</section>`;
+  adminEls.dialog.showModal();
+}
+
+async function downloadAdminCsv() {
+  const query = adminEls.search.value.trim();
+  adminEls.status.textContent = "Preparando CSV...";
+  try {
+    const blob = await apiRequest(`/api/admin/attempts.csv${query ? `?q=${encodeURIComponent(query)}` : ""}`);
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "examosim-todas-avaliacoes.csv";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    adminEls.status.textContent = "CSV geral baixado.";
+  } catch (error) {
+    adminEls.status.textContent = error.message;
+  }
+}
+
+function escapeHtml(value) {
+  return String(value ?? "").replace(/[&<>"']/g, (character) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+  })[character]);
+}
+
+function formatDateTime(value) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? String(value || "—") : date.toLocaleString("pt-BR");
+}
+
+function formatDuration(value) {
+  const seconds = Number(value) || 0;
+  return `${Math.floor(seconds / 60)}min ${seconds % 60}s`;
+}
+
+function transcriptRole(kind) {
+  return { student: "Profissional", patient: "Paciente", system: "Sistema" }[kind] || "Sistema";
+}
+
+let adminSearchTimer;
+adminEls.search?.addEventListener("input", () => {
+  clearTimeout(adminSearchTimer);
+  adminSearchTimer = setTimeout(loadAdminAttempts, 300);
+});
+adminEls.refreshBtn?.addEventListener("click", loadAdminAttempts);
+adminEls.exportBtn?.addEventListener("click", downloadAdminCsv);
+adminEls.body?.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-attempt-id]");
+  if (button) showAttemptDetails(button.dataset.attemptId);
+});
+adminEls.closeDialogBtn?.addEventListener("click", () => adminEls.dialog.close());
 
 els.caseSelect.addEventListener("change", (event) => loadCase(event.target.value));
 
@@ -4449,23 +4663,28 @@ els.languageSelect.addEventListener("change", (event) => {
 initAuthentication();
 boot();
 
+let profileSaveTimer;
 els.studentForm.addEventListener("input", () => {
+  if (state.sessionRole !== "professional") return;
   state.student.name = els.studentName.value.trim();
   state.student.id = els.studentId.value.trim();
   state.student.college = els.studentCollege.value.trim();
   state.student.profession = els.profession.value;
   state.student.city = els.city.value.trim();
   state.student.stateRegion = els.stateRegion.value;
-  state.student.email = els.professionalEmail.value.trim();
-  localStorage.setItem("examosim.professionalProfile", JSON.stringify(state.student));
-  const account = loadLocalAccount();
-  if (account && state.sessionRole === "professional") {
-    account.profile = { ...state.student };
-    account.email = state.student.email.toLowerCase();
-    localStorage.setItem("examosim.localAccount", JSON.stringify(account));
-  }
   authEls.sessionUser.textContent = state.student.name || "Profissional";
-  authEls.sessionRole.textContent = state.sessionRole === "admin" ? "Acesso administrativo" : state.student.profession || "Profissional de saúde";
+  authEls.sessionRole.textContent = state.student.profession || "Profissional de saúde";
   renderChart();
   renderDashboard();
+  clearTimeout(profileSaveTimer);
+  profileSaveTimer = setTimeout(async () => {
+    try {
+      const result = await apiRequest("/api/profile", { method: "PUT", body: JSON.stringify(state.student) });
+      state.student = { ...state.student, ...result.profile };
+      syncProfessionalForm();
+      setOsceStatus("Perfil atualizado no servidor.");
+    } catch (error) {
+      setOsceStatus(`Não foi possível atualizar o perfil: ${error.message}`);
+    }
+  }, 600);
 });

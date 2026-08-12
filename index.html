@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>ExamOSim | Raciocínio Clínico</title>
-    <link rel="stylesheet" href="styles.css?v=20260811-lesion-images-3" />
+    <link rel="stylesheet" href="styles.css?v=20260812-central-admin-1" />
   </head>
   <body>
     <section id="landingPage" class="landing-page">
@@ -190,6 +190,30 @@
 
       </aside>
 
+      <section id="adminPanel" class="admin-panel" hidden>
+        <header class="admin-panel-header">
+          <div><span>Administração</span><h2>Preenchimentos e avaliações</h2><p>Dados centralizados enviados pelos profissionais ao finalizar cada atendimento.</p></div>
+          <button id="adminExportBtn" class="primary-action" type="button">Baixar CSV geral</button>
+        </header>
+        <div class="admin-toolbar">
+          <label><span>Buscar</span><input id="adminSearch" type="search" placeholder="Profissional, e-mail, caso ou instituição" /></label>
+          <button id="adminRefreshBtn" type="button">Atualizar</button>
+        </div>
+        <div id="adminStats" class="admin-stats"></div>
+        <p id="adminStatus" class="osce-status" aria-live="polite"></p>
+        <div class="admin-table-wrap">
+          <table class="admin-table">
+            <thead><tr><th>Data</th><th>Profissional</th><th>Caso</th><th>Nota</th><th>Tempo</th><th></th></tr></thead>
+            <tbody id="adminAttemptsBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <dialog id="attemptDetailsDialog" class="attempt-dialog">
+        <div class="attempt-dialog-header"><div><span>Avaliação completa</span><h2 id="attemptDetailsTitle">Preenchimento</h2></div><button id="closeAttemptDialogBtn" type="button" aria-label="Fechar">×</button></div>
+        <div id="attemptDetailsContent" class="attempt-details-content"></div>
+      </dialog>
+
       <section class="clinic-stage" aria-label="Consultório virtual">
         <nav id="phaseNav" class="phase-nav" aria-label="Fases da consulta">
           <button type="button" data-phase="anamnesis" class="active"><span>1</span>Anamnese</button>
@@ -302,8 +326,8 @@
           <div class="osce-actions" aria-label="Exportação OSCE">
             <button id="saveOsceBtn" type="button">Salvar OSCE</button>
             <button id="exportCurrentOsceBtn" type="button">CSV atual</button>
-            <button id="exportAllOsceBtn" type="button">CSV geral</button>
-            <button id="clearOsceBtn" type="button">Limpar</button>
+            <button id="exportAllOsceBtn" type="button" hidden>CSV geral</button>
+            <button id="clearOsceBtn" type="button" hidden>Limpar</button>
           </div>
           <p id="osceStatus" class="osce-status" aria-live="polite"></p>
           <div id="report" class="report"></div>
@@ -311,6 +335,6 @@
       </aside>
     </main>
 
-    <script src="app.js?v=20260811-lesion-images-3"></script>
+    <script src="app.js?v=20260812-central-admin-1"></script>
   </body>
 </html>

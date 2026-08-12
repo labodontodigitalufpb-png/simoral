@@ -6,10 +6,11 @@ Plataforma educacional de treinamento em raciocínio clínico com paciente virtu
 
 - Consulta textual com paciente virtual e progressão clínica controlada.
 - Página inicial pública com apresentação, instruções, login profissional, acesso administrativo e cadastro.
-- Sessão local com bloqueio da interface clínica até a autenticação e opção de logout.
+- Autenticação no servidor com senhas protegidas por PBKDF2 e sessões assinadas.
 - Banco com 52 casos clínicos em JSON, sem programação individual da interface.
 - Perfil multiprofissional com nome, profissão, cidade, estado, e-mail, registro e instituição.
-- Painel local com casos disponíveis, casos concluídos, média e último desempenho.
+- Painel profissional com casos disponíveis, histórico centralizado, média e último desempenho.
+- Painel administrativo protegido com busca, visualização completa dos preenchimentos e exportação CSV geral.
 - Fotos de pacientes separadas por sexo e idade, recortadas da imagem de referência e associadas a cada caso.
 - Pacientes identificados apenas por iniciais para anonimização dos casos.
 - Seletor de idioma para português, inglês e espanhol.
@@ -30,6 +31,7 @@ Plataforma educacional de treinamento em raciocínio clínico com paciente virtu
 - Exames complementares e condutas separados e liberados progressivamente.
 - Classificação da urgência clínica.
 - Avaliação multidimensional em 100 pontos, lacunas, alertas, feedback do tutor e SOAP automático.
+- Envio automático da avaliação e da conversa completa ao servidor ao finalizar o atendimento.
 - Campo de observações da OSCE e exportação de registros em CSV para planilha.
 - Consultório virtual visual em HTML/CSS como placeholder para uma futura cena 3D.
 - Blocos de anamnese acessíveis em qualquer ordem, sem aviso ou penalidade por sequência.
@@ -73,6 +75,10 @@ O app funciona sem Gemini usando o motor local de diálogo. Para ativar resposta
 GEMINI_API_KEY=sua_chave
 GEMINI_MODEL=gemini-2.5-flash
 PORT=5173
+ADMIN_EMAIL=admin@examosim.local
+ADMIN_PASSWORD=defina-uma-senha-forte
+SESSION_SECRET=defina-uma-chave-aleatoria-longa
+DATA_FILE=.data/examosim-db.json
 ```
 
 O Gemini recebe apenas a pergunta, a resposta-base segura e os dados clínicos já liberados pelo motor do caso. Ele não recebe permissão para revelar diagnóstico nem inventar informações.
@@ -86,18 +92,28 @@ No GitHub Pages, o frontend usa o backend público em `https://simoral.onrender.
 Na seção `Avaliação`, use:
 
 - `Observações da OSCE`: comentários livres do avaliador.
-- `Salvar OSCE`: guarda o registro no navegador.
+- `Finalizar atendimento`: gera a avaliação e a envia automaticamente ao servidor.
+- `Salvar OSCE`: permite repetir manualmente o envio se necessário, atualizando a mesma tentativa sem duplicá-la.
 - `CSV atual`: baixa a avaliação atual.
-- `CSV geral`: baixa todos os registros salvos localmente.
-- `Limpar`: apaga os registros OSCE do navegador.
 
-O CSV abre em Excel, Google Sheets ou LibreOffice.
+No acesso administrativo:
+
+- A tabela apresenta os preenchimentos enviados por todos os profissionais.
+- A busca filtra por profissional, e-mail, caso ou instituição.
+- `Ver detalhes` apresenta todos os campos da avaliação e a conversa completa.
+- `Baixar CSV geral` exporta os registros exibidos. A rota é protegida e exclusiva do administrador.
+
+O CSV abre em Excel, Google Sheets ou LibreOffice e inclui também o identificador da tentativa e a conversa completa.
 
 Os registros incluem perfil profissional, localização, duração da tentativa, perguntas, cobertura da anamnese, exame físico, hipóteses e justificativa, exames, condutas, urgência e pontuação por dimensão.
 
-## Escopo de persistência atual
+## Persistência e segurança
 
-Esta versão mantém conta, perfil e histórico no navegador. A senha profissional é armazenada apenas como hash SHA-256 no `localStorage`, e a sessão usa `sessionStorage`; isso atende à demonstração local, mas não substitui autenticação segura de produção. Credenciais administrativas não são exibidas na página pública. Antes de publicar para uso real, o acesso local deve ser substituído por backend, banco de dados, hash com salt, recuperação de senha e controle de acesso por papéis.
+Contas, perfis e avaliações são armazenados centralmente pelo `server.js`. Por padrão, os dados ficam em `.data/examosim-db.json`, fora do Git. A escrita é atômica, as senhas usam PBKDF2 com salt individual e as rotas administrativas exigem uma sessão assinada com papel de administrador.
+
+Defina `ADMIN_EMAIL`, `ADMIN_PASSWORD` e `SESSION_SECRET` no ambiente de produção. Se `SESSION_SECRET` não for definido, o servidor cria uma chave temporária e as sessões são invalidadas quando o processo reinicia. Em produção, o login administrativo fica desabilitado quando `ADMIN_PASSWORD` não está configurado.
+
+O arquivo JSON central atende a uma instalação única e elimina a limitação do `localStorage`. Para múltiplas instâncias, alto volume ou requisitos institucionais de auditoria e backup, configure `DATA_FILE` em um volume persistente ou substitua a camada de arquivo por PostgreSQL.
 
 ## Publicação na internet
 
