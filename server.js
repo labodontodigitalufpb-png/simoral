@@ -121,6 +121,10 @@ async function handleApi(req, res, url) {
     await handleLogin(req, res);
     return;
   }
+  if (req.method === "POST" && url.pathname === "/api/auth/recover") {
+    await handlePasswordRecovery(req, res);
+    return;
+  }
 
   const session = authenticateRequest(req);
   if (!session) {
@@ -229,12 +233,15 @@ async function handleRegistration(req, res) {
     email: profile.email,
     passwordSalt: salt,
     passwordHash: hashPassword(password, salt),
+    recoveryCredentialHash: "",
     profile,
     createdAt: new Date().toISOString()
   };
+  const recoveryCredential = createRecoveryCredential();
+  user.recoveryCredentialHash = hashRecoveryCredential(recoveryCredential);
   database.users.push(user);
   writeDatabase(database);
-  sendJson(res, 201, authResponse("professional", user.id, profile));
+  sendJson(res, 201, { ...authResponse("professional", user.id, profile), recoveryCredential });
 }
 
 async function handleLogin(req, res) {
@@ -250,12 +257,43 @@ async function handleLogin(req, res) {
     sendJson(res, 200, authResponse("admin", "admin", adminProfile()));
     return;
   }
-  const user = readDatabase().users.find((item) => item.email === email);
+  const database = readDatabase();
+  const user = database.users.find((item) => item.email === email);
   if (!user || !safeEqual(hashPassword(password, user.passwordSalt), user.passwordHash)) {
     sendJson(res, 401, { error: "E-mail ou senha inválidos." });
     return;
   }
-  sendJson(res, 200, authResponse("professional", user.id, user.profile));
+  let recoveryCredential = "";
+  if (!user.recoveryCredentialHash) {
+    recoveryCredential = createRecoveryCredential();
+    user.recoveryCredentialHash = hashRecoveryCredential(recoveryCredential);
+    writeDatabase(database);
+  }
+  sendJson(res, 200, { ...authResponse("professional", user.id, user.profile), recoveryCredential });
+}
+
+async function handlePasswordRecovery(req, res) {
+  const body = await readJsonBody(req);
+  const email = String(body.email || "").trim().toLowerCase();
+  const password = String(body.password || "");
+  const recoveryCredential = String(body.recoveryCredential || "");
+  if (!isEmail(email) || password.length < 8 || !recoveryCredential) {
+    sendJson(res, 400, { error: "Informe o e-mail, a credencial de recuperação e uma nova senha com pelo menos 8 caracteres." });
+    return;
+  }
+  const database = readDatabase();
+  const user = database.users.find((item) => item.email === email);
+  if (!user || !user.recoveryCredentialHash || !safeEqual(hashRecoveryCredential(recoveryCredential), user.recoveryCredentialHash)) {
+    sendJson(res, 401, { error: "Não foi possível validar a recuperação neste dispositivo." });
+    return;
+  }
+  const salt = crypto.randomBytes(16).toString("hex");
+  const nextRecoveryCredential = createRecoveryCredential();
+  user.passwordSalt = salt;
+  user.passwordHash = hashPassword(password, salt);
+  user.recoveryCredentialHash = hashRecoveryCredential(nextRecoveryCredential);
+  writeDatabase(database);
+  sendJson(res, 200, { message: "Senha atualizada.", recoveryCredential: nextRecoveryCredential });
 }
 
 function authResponse(role, subject, profile) {
@@ -285,6 +323,14 @@ function authenticateRequest(req) {
 
 function hashPassword(password, salt) {
   return crypto.pbkdf2Sync(password, salt, 210_000, 32, "sha256").toString("hex");
+}
+
+function createRecoveryCredential() {
+  return crypto.randomBytes(32).toString("base64url");
+}
+
+function hashRecoveryCredential(credential) {
+  return crypto.createHash("sha256").update(String(credential)).digest("hex");
 }
 
 function safeEqual(left, right) {

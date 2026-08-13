@@ -39,22 +39,20 @@
           </div>
           <div id="acesso" class="auth-card">
             <div class="auth-tabs" role="tablist">
-              <button id="loginTab" class="active" type="button" role="tab" aria-selected="true">Entrar</button>
+              <button id="professionalTab" class="active" type="button" role="tab" aria-selected="true">Profissional</button>
+              <button id="adminTab" type="button" role="tab" aria-selected="false">Administrador</button>
               <button id="registerTab" type="button" role="tab" aria-selected="false">Criar conta</button>
             </div>
 
             <form id="loginForm" class="auth-form">
-              <div class="role-selector" aria-label="Tipo de acesso">
-                <label><input type="radio" name="loginRole" value="professional" checked /><span>Profissional</span></label>
-                <label><input type="radio" name="loginRole" value="admin" /><span>Administrador</span></label>
-              </div>
               <div id="loginInstructions" class="auth-instructions">
                 <strong>Acesso profissional</strong>
-                <p>Entre com o e-mail e a senha usados no cadastro. Primeiro acesso? Selecione “Criar conta”.</p>
+                <p>Entre com o e-mail e a senha usados no cadastro.</p>
               </div>
               <label><span>E-mail</span><input id="loginEmail" type="email" required autocomplete="email" placeholder="voce@exemplo.com" /></label>
               <label><span>Senha</span><input id="loginPassword" type="password" required minlength="8" autocomplete="current-password" placeholder="Mínimo de 8 caracteres" /></label>
-              <button class="auth-submit" type="submit">Entrar no ExamOSim</button>
+              <button id="loginSubmitBtn" class="auth-submit" type="submit">Acessar como profissional</button>
+              <button id="forgotPasswordBtn" class="auth-link-button" type="button">Recuperar senha</button>
             </form>
 
             <form id="registerForm" class="auth-form" hidden>
@@ -68,6 +66,15 @@
               <label><span>Instituição de vínculo <small>opcional</small></span><input id="registerInstitution" type="text" /></label>
               <label class="terms-check"><input id="registerTerms" type="checkbox" required /><span>Compreendo que o ExamOSim é uma ferramenta educacional e não substitui avaliação clínica real.</span></label>
               <button class="auth-submit" type="submit">Criar conta e começar</button>
+            </form>
+
+            <form id="recoveryForm" class="auth-form" hidden>
+              <div class="auth-instructions"><strong>Recuperação de senha</strong><p>Disponível no dispositivo em que a conta foi cadastrada. A senha não é armazenada no aparelho.</p></div>
+              <label><span>E-mail profissional</span><input id="recoveryEmail" type="email" required autocomplete="email" /></label>
+              <label><span>Nova senha</span><input id="recoveryPassword" type="password" minlength="8" required autocomplete="new-password" placeholder="Mínimo de 8 caracteres" /></label>
+              <label><span>Confirmar nova senha</span><input id="recoveryPasswordConfirm" type="password" minlength="8" required autocomplete="new-password" /></label>
+              <button class="auth-submit" type="submit">Definir nova senha</button>
+              <button id="cancelRecoveryBtn" class="auth-link-button" type="button">Voltar ao acesso profissional</button>
             </form>
             <p id="authStatus" class="auth-status" aria-live="polite"></p>
           </div>
@@ -322,6 +329,6 @@
       </aside>
     </main>
 
-    <script src="app.js?v=20260813-flex-anamnesis-1"></script>
+    <script src="app.js?v=20260813-auth-recovery-1"></script>
   </body>
 </html>

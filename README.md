@@ -6,7 +6,7 @@ Plataforma educacional de treinamento em raciocínio clínico com paciente virtu
 
 - Consulta textual com paciente virtual e progressão clínica controlada.
 - Página inicial pública com apresentação, instruções, login profissional, acesso administrativo e cadastro.
-- Autenticação no servidor com senhas protegidas por PBKDF2 e sessões assinadas.
+- Autenticação separada para profissionais e administradores, com senhas protegidas por PBKDF2, sessões assinadas e recuperação no dispositivo cadastrado.
 - Banco com 52 casos clínicos em JSON, sem programação individual da interface.
 - Perfil odontológico com nome, uma ou mais especialidades, cidade, estado, e-mail, registro e instituição.
 - Painel profissional com casos disponíveis, histórico centralizado, média e último desempenho.
@@ -109,7 +109,7 @@ Os registros incluem perfil profissional, localização, duração da tentativa,
 
 ## Persistência e segurança
 
-Contas, perfis e avaliações são armazenados centralmente pelo `server.js`. Por padrão, os dados ficam em `.data/examosim-db.json`, fora do Git. A escrita é atômica, as senhas usam PBKDF2 com salt individual e as rotas administrativas exigem uma sessão assinada com papel de administrador.
+Contas, perfis e avaliações são armazenados centralmente pelo `server.js`. Por padrão, os dados ficam em `.data/examosim-db.json`, fora do Git. A escrita é atômica, as senhas usam PBKDF2 com salt individual e as rotas administrativas exigem uma sessão assinada com papel de administrador. O navegador que cadastra ou acessa uma conta profissional guarda um verificador criptográfico local — nunca a senha em texto aberto — e uma credencial aleatória de recuperação. Isso permite redefinir a senha e restaurar automaticamente a conta no servidor quando o armazenamento temporário do serviço é reiniciado.
 
 Defina `ADMIN_EMAIL`, `ADMIN_PASSWORD` e `SESSION_SECRET` no ambiente de produção. Se `SESSION_SECRET` não for definido, o servidor cria uma chave temporária e as sessões são invalidadas quando o processo reinicia. Em produção, o login administrativo fica desabilitado quando `ADMIN_PASSWORD` não está configurado.
 
