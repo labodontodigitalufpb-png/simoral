@@ -35,6 +35,7 @@ const state = {
   pendingClinicalDatum: null,
   physicalExamUnlocked: false,
   sessionRole: "professional",
+  loginRole: "professional",
   consultationPhase: "anamnesis",
   unlockedPhases: new Set(["anamnesis"]),
   selectedPhysicalExams: new Set(),
@@ -114,13 +115,21 @@ const els = {
 const authEls = {
   landingPage: document.querySelector("#landingPage"),
   simulatorApp: document.querySelector("#simulatorApp"),
-  loginTab: document.querySelector("#loginTab"),
+  professionalTab: document.querySelector("#professionalTab"),
+  adminTab: document.querySelector("#adminTab"),
   registerTab: document.querySelector("#registerTab"),
   loginForm: document.querySelector("#loginForm"),
   registerForm: document.querySelector("#registerForm"),
+  recoveryForm: document.querySelector("#recoveryForm"),
   loginInstructions: document.querySelector("#loginInstructions"),
   loginEmail: document.querySelector("#loginEmail"),
   loginPassword: document.querySelector("#loginPassword"),
+  loginSubmitBtn: document.querySelector("#loginSubmitBtn"),
+  forgotPasswordBtn: document.querySelector("#forgotPasswordBtn"),
+  recoveryEmail: document.querySelector("#recoveryEmail"),
+  recoveryPassword: document.querySelector("#recoveryPassword"),
+  recoveryPasswordConfirm: document.querySelector("#recoveryPasswordConfirm"),
+  cancelRecoveryBtn: document.querySelector("#cancelRecoveryBtn"),
   authStatus: document.querySelector("#authStatus"),
   registerName: document.querySelector("#registerName"),
   registerProfession: document.querySelector("#registerProfession"),
@@ -4288,38 +4297,46 @@ function setOsceStatus(message) {
 function initAuthentication() {
   renderSpecialtyOptions(authEls.registerProfession, "registerSpecialties");
   renderSpecialtyOptions(els.profession, "profileSpecialties");
-  authEls.loginTab.addEventListener("click", () => showAuthView("login"));
+  authEls.professionalTab.addEventListener("click", () => showAuthView("professional"));
+  authEls.adminTab.addEventListener("click", () => showAuthView("admin"));
   authEls.registerTab.addEventListener("click", () => showAuthView("register"));
-  document.querySelectorAll("[name='loginRole']").forEach((input) => {
-    input.addEventListener("change", updateLoginInstructions);
-  });
+  authEls.forgotPasswordBtn.addEventListener("click", () => showAuthView("recovery"));
+  authEls.cancelRecoveryBtn.addEventListener("click", () => showAuthView("professional"));
   authEls.loginForm.addEventListener("submit", handleLogin);
   authEls.registerForm.addEventListener("submit", handleRegistration);
+  authEls.recoveryForm.addEventListener("submit", handlePasswordRecovery);
   authEls.logoutBtn.addEventListener("click", logout);
+  showAuthView("professional");
   restoreSession();
 }
 
 function showAuthView(view) {
-  const isLogin = view === "login";
+  const isLogin = view === "professional" || view === "admin";
+  state.loginRole = view === "admin" ? "admin" : "professional";
   authEls.loginForm.hidden = !isLogin;
-  authEls.registerForm.hidden = isLogin;
-  authEls.loginTab.classList.toggle("active", isLogin);
-  authEls.registerTab.classList.toggle("active", !isLogin);
-  authEls.loginTab.setAttribute("aria-selected", String(isLogin));
-  authEls.registerTab.setAttribute("aria-selected", String(!isLogin));
+  authEls.registerForm.hidden = view !== "register";
+  authEls.recoveryForm.hidden = view !== "recovery";
+  authEls.professionalTab.classList.toggle("active", view === "professional" || view === "recovery");
+  authEls.adminTab.classList.toggle("active", view === "admin");
+  authEls.registerTab.classList.toggle("active", view === "register");
+  authEls.professionalTab.setAttribute("aria-selected", String(view === "professional" || view === "recovery"));
+  authEls.adminTab.setAttribute("aria-selected", String(view === "admin"));
+  authEls.registerTab.setAttribute("aria-selected", String(view === "register"));
+  updateLoginInstructions();
   setAuthStatus("");
 }
 
 function updateLoginInstructions() {
-  const role = document.querySelector("[name='loginRole']:checked")?.value || "professional";
-  authEls.loginInstructions.innerHTML = role === "admin"
+  authEls.loginInstructions.innerHTML = state.loginRole === "admin"
     ? "<strong>Acesso administrativo</strong><p>Use o e-mail e a senha fornecidos pela coordenação da plataforma.</p>"
-    : "<strong>Acesso profissional</strong><p>Entre com o e-mail e a senha usados no cadastro. Primeiro acesso? Selecione “Criar conta”.</p>";
+    : "<strong>Acesso profissional</strong><p>Entre com o e-mail e a senha usados no cadastro.</p>";
+  authEls.loginSubmitBtn.textContent = state.loginRole === "admin" ? "Acessar como administrador" : "Acessar como profissional";
+  authEls.forgotPasswordBtn.hidden = state.loginRole === "admin";
 }
 
 async function handleLogin(event) {
   event.preventDefault();
-  const role = document.querySelector("[name='loginRole']:checked")?.value || "professional";
+  const role = state.loginRole || "professional";
   const email = authEls.loginEmail.value.trim().toLowerCase();
   const password = authEls.loginPassword.value;
   setAuthStatus("Verificando credenciais...");
@@ -4331,12 +4348,15 @@ async function handleLogin(event) {
         body: JSON.stringify({ role, email, password })
       });
     } catch (error) {
-      const legacy = role === "professional" ? loadLocalAccount() : null;
-      if (error.status !== 401 || !legacy || legacy.email !== email) throw error;
+      const localAccount = role === "professional" ? await verifiedLocalAccount(email, password) : null;
+      if (error.status !== 401 || !localAccount) throw error;
       result = await apiRequest("/api/auth/register", {
         method: "POST",
-        body: JSON.stringify({ profile: legacy.profile, password })
+        body: JSON.stringify({ profile: localAccount.profile, password })
       });
+    }
+    if (role === "professional") {
+      await saveLocalAccount(result.profile, password, result.recoveryCredential || loadRecoveryCredential(email));
     }
     startSession(result.role, result.profile, result.token);
     setAuthStatus("");
@@ -4368,12 +4388,108 @@ async function handleRegistration(event) {
       method: "POST",
       body: JSON.stringify({ profile, password: authEls.registerPassword.value })
     });
+    await saveLocalAccount(profile, authEls.registerPassword.value, result.recoveryCredential);
     localStorage.removeItem("examosim.localAccount");
     setAuthStatus("Conta criada. Abrindo o simulador...", "success");
     startSession(result.role, result.profile, result.token);
   } catch (error) {
     setAuthStatus(error.message, "error");
   }
+}
+
+async function handlePasswordRecovery(event) {
+  event.preventDefault();
+  const email = authEls.recoveryEmail.value.trim().toLowerCase();
+  const password = authEls.recoveryPassword.value;
+  const confirmation = authEls.recoveryPasswordConfirm.value;
+  if (password !== confirmation) {
+    setAuthStatus("As senhas informadas não coincidem.", "error");
+    return;
+  }
+  const recoveryCredential = loadRecoveryCredential(email);
+  if (!recoveryCredential) {
+    setAuthStatus("Não há credencial de recuperação neste dispositivo. Procure a coordenação da plataforma.", "error");
+    return;
+  }
+  try {
+    setAuthStatus("Atualizando a senha...");
+    const result = await apiRequest("/api/auth/recover", {
+      method: "POST",
+      body: JSON.stringify({ email, password, recoveryCredential })
+    });
+    const localAccount = loadStoredLocalAccount(email);
+    if (localAccount?.profile) await saveLocalAccount(localAccount.profile, password, result.recoveryCredential);
+    else saveRecoveryCredential(email, result.recoveryCredential);
+    authEls.loginEmail.value = email;
+    authEls.loginPassword.value = "";
+    authEls.recoveryForm.reset();
+    showAuthView("professional");
+    setAuthStatus("Senha atualizada. Entre com a nova senha.", "success");
+  } catch (error) {
+    setAuthStatus(error.message, "error");
+  }
+}
+
+function recoveryCredentialKey(email) {
+  return `examosim.recovery.${String(email || "").trim().toLowerCase()}`;
+}
+
+function localAccountKey(email) {
+  return `examosim.localAccount.${String(email || "").trim().toLowerCase()}`;
+}
+
+function saveRecoveryCredential(email, credential) {
+  if (email && credential) localStorage.setItem(recoveryCredentialKey(email), credential);
+}
+
+function loadRecoveryCredential(email) {
+  return localStorage.getItem(recoveryCredentialKey(email)) || "";
+}
+
+async function saveLocalAccount(profile, password, recoveryCredential = "") {
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const passwordHash = await deriveLocalPasswordHash(password, salt);
+  const payload = {
+    email: profile.email,
+    profile,
+    salt: bytesToBase64(salt),
+    passwordHash
+  };
+  localStorage.setItem(localAccountKey(profile.email), JSON.stringify(payload));
+  saveRecoveryCredential(profile.email, recoveryCredential);
+}
+
+async function verifiedLocalAccount(email, password) {
+  const account = loadStoredLocalAccount(email);
+  if (account?.salt && account?.passwordHash) {
+    const candidate = await deriveLocalPasswordHash(password, base64ToBytes(account.salt));
+    return candidate === account.passwordHash ? account : null;
+  }
+  return null;
+}
+
+function loadStoredLocalAccount(email) {
+  try {
+    return JSON.parse(localStorage.getItem(localAccountKey(email)) || "null");
+  } catch (error) {
+    return null;
+  }
+}
+
+async function deriveLocalPasswordHash(password, salt) {
+  const material = await crypto.subtle.importKey("raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveBits"]);
+  const bits = await crypto.subtle.deriveBits({ name: "PBKDF2", salt, iterations: 210000, hash: "SHA-256" }, material, 256);
+  return bytesToBase64(new Uint8Array(bits));
+}
+
+function bytesToBase64(bytes) {
+  let binary = "";
+  bytes.forEach((byte) => { binary += String.fromCharCode(byte); });
+  return btoa(binary);
+}
+
+function base64ToBytes(value) {
+  return Uint8Array.from(atob(value), (char) => char.charCodeAt(0));
 }
 
 function startSession(role, profile, token = state.sessionToken, persist = true) {
@@ -4422,7 +4538,7 @@ function logout() {
   authEls.landingPage.hidden = false;
   authEls.loginPassword.value = "";
   document.body.classList.remove("simulator-open");
-  showAuthView("login");
+  showAuthView("professional");
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 

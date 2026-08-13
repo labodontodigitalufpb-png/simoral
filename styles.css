@@ -222,7 +222,7 @@ body {
 
 .auth-tabs {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, 1fr);
   margin-bottom: 20px;
   border-radius: 9px;
   background: #eef3f5;
@@ -328,6 +328,17 @@ body {
   color: white;
   padding: 12px;
   font-weight: 850;
+}
+
+.auth-link-button {
+  border: 0;
+  background: transparent;
+  color: var(--accent-strong);
+  padding: 4px;
+  font-size: 0.76rem;
+  font-weight: 800;
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 .terms-check {
