@@ -18,14 +18,14 @@ Plataforma educacional de treinamento em raciocínio clínico com paciente virtu
 - Diálogo orientado por intenções clínicas ampliadas de HDA, história familiar, médica, odontológica e hábitos.
 - Casos adicionais importados de `CASO CLÍNICO 1.docx`, com exame clínico físico estruturado.
 - Navegação por fases: Anamnese → Exame físico → Diagnóstico → Exames → Conduta.
-- Exame físico liberado por suficiência clínica: 3 perguntas na HDA cobrindo ao menos 2 dimensões, passagem por 3 blocos complementares e 45% dos dados essenciais — ou 8 perguntas totais como alternativa quando a formulação livre não for classificada perfeitamente.
+- Exame físico liberado por suficiência clínica flexível: abordagem da doença atual, de dois outros blocos pertinentes e de 25% dos dados essenciais — ou cinco perguntas totais como alternativa.
 - Seleção de regiões, sistemas e técnicas, com achados revelados sob solicitação.
-- Perguntas compostas podem cobrir mais de uma dimensão da HDA, e os demais blocos exigem apenas uma abordagem relevante para o avanço.
+- Perguntas amplas, específicas ou compostas são reconhecidas pelo conteúdo de cada item da anamnese, sem exigir critérios fixos de formulação na HDA.
 - Roteiro de anamnese baseado no arquivo Word importado em `data/anamnesis-reference.txt`.
 - Dados ocultos liberados por perguntas relevantes.
 - Paciente com respostas evasivas ou progressivas.
 - Interação com o paciente exclusivamente por texto.
-- Fotografias clínicas do livro de referência liberadas durante a inspeção da região correspondente, sem antecipar o diagnóstico.
+- Uma fotografia clínica representativa por lesão é liberada durante a inspeção, escolhida preferencialmente pela correspondência com a descrição clínica do caso e sem antecipar o diagnóstico.
 - Prontuário digital atualizado durante a consulta.
 - Seleção ordenada de até cinco hipóteses, acompanhada de justificativa clínica.
 - Exames complementares e condutas separados e liberados progressivamente.
