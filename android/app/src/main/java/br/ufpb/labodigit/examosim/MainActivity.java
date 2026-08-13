@@ -51,7 +51,7 @@ public class MainActivity extends Activity {
         settings.setAllowFileAccess(false);
         settings.setAllowContentAccess(false);
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
-        settings.setUserAgentString(settings.getUserAgentString() + " ExamOSimAndroid/1.4");
+        settings.setUserAgentString(settings.getUserAgentString() + " ExamOSimAndroid/1.5");
 
         webView.addJavascriptInterface(new DownloadBridge(this), "ExamOSimAndroid");
         webView.setWebChromeClient(new WebChromeClient());

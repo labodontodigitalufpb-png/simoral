@@ -30,7 +30,6 @@ const state = {
   flowEvents: [],
   structuredQuestions: {},
   structuredQuestionTotals: {},
-  hdaQuestionAxes: new Set(),
   lastReport: null,
   pendingAnamnesisUpdate: null,
   pendingClinicalDatum: null,
@@ -41,7 +40,6 @@ const state = {
   selectedPhysicalExams: new Set(),
   revealedExamFindings: [],
   clinicalImageRevealed: false,
-  clinicalImageIndex: 0,
   diagnosisOrder: [],
   startedAt: null,
   currentAttemptId: null,
@@ -85,7 +83,6 @@ const els = {
   clinicalImageTitle: document.querySelector("#clinicalImageTitle"),
   clinicalImageCaption: document.querySelector("#clinicalImageCaption"),
   clinicalImageSource: document.querySelector("#clinicalImageSource"),
-  nextClinicalImageBtn: document.querySelector("#nextClinicalImageBtn"),
   flowList: document.querySelector("#flowList"),
   phaseNav: document.querySelector("#phaseNav"),
   proceedExamBtn: document.querySelector("#proceedExamBtn"),
@@ -180,13 +177,13 @@ const I18N = {
     chart: "Prontuário",
     progress: "Progresso",
     physicalExam: "Exame físico",
-    physicalExamLocked: "O exame físico será liberado após 3 perguntas sobre a doença atual, cobrindo ao menos 2 dimensões clínicas, passagem por 3 outros blocos da anamnese e obtenção de parte dos dados essenciais.",
+    physicalExamLocked: "O exame físico será liberado após a abordagem da doença atual, de outros blocos pertinentes da anamnese e de parte dos dados essenciais do caso.",
     physicalExamUnlocked: "Detalhes do exame clínico físico liberados",
     physicalExamUnavailable: "Exame físico detalhado não cadastrado para este caso.",
     stageLocked: "Etapa registrada fora da sequência esperada.",
     virtualOffice: "Consultório virtual 3D",
     patient: "Paciente",
-    askQuestion: "Pergunte ao paciente, por exemplo: ha quanto tempo esta com a ferida?",
+    askQuestion: "Converse com o paciente sobre a queixa e os antecedentes relevantes.",
     send: "Enviar",
     anamnesisSequence: "Sequência da anamnese",
     diagnosticHypotheses: "Hipóteses diagnósticas",
@@ -201,7 +198,7 @@ const I18N = {
     neutral: "Neutro",
     done: "feito",
     pending: "pendente",
-    stageRed: "0/3",
+    stageRed: "não iniciado",
     stageYellow: "em andamento",
     stageGreen: "completo",
     currentStage: "etapa atual",
@@ -224,7 +221,7 @@ const I18N = {
     notInformed: "nao informado",
     collegeMissing: "nao informada",
     complaint: "Queixa",
-    expectedScript: "Conduza a anamnese com naturalidade. Na história da doença atual, explore ao menos duas dimensões clínicas, como início, localização, evolução, sintomas ou possíveis fatores associados. Perguntas amplas, específicas ou compostas liberam dados do prontuário.",
+    expectedScript: "Conduza a anamnese com naturalidade. Perguntas amplas, específicas ou compostas são consideradas conforme o conteúdo de cada item clínico, sem exigir uma formulação fixa.",
     score: "Nota",
     diagnosis: "Diagnostico",
     diagnosisHit: "hipotese principal correta",
@@ -258,13 +255,13 @@ const I18N = {
     chart: "Chart",
     progress: "Progress",
     physicalExam: "Physical exam",
-    physicalExamLocked: "The physical exam will unlock after 3 HPI questions covering at least 2 clinical dimensions, coverage of 3 other history domains, and collection of part of the essential data.",
+    physicalExamLocked: "The physical exam will unlock after the current illness, other relevant history domains, and part of the case's essential data have been addressed.",
     physicalExamUnlocked: "Physical clinical exam details unlocked",
     physicalExamUnavailable: "Detailed physical exam is not registered for this case.",
     stageLocked: "Stage recorded outside the expected sequence.",
     virtualOffice: "3D virtual office",
     patient: "Patient",
-    askQuestion: "Ask the patient, for example: how long have you had the sore?",
+    askQuestion: "Talk to the patient about the complaint and relevant history.",
     send: "Send",
     anamnesisSequence: "Anamnesis sequence",
     diagnosticHypotheses: "Diagnostic hypotheses",
@@ -279,7 +276,7 @@ const I18N = {
     neutral: "Neutral",
     done: "done",
     pending: "pending",
-    stageRed: "0/3",
+    stageRed: "not started",
     stageYellow: "in progress",
     stageGreen: "complete",
     currentStage: "current stage",
@@ -297,12 +294,12 @@ const I18N = {
     base: "Source",
     objective: "Objective",
     baseText: "clinical script extracted from the imported Word file.",
-    objectiveText: "follow this sequence: HPI, family, medical, dental history, and habits/dependencies; in HPI, value when, where, how, and why.",
+    objectiveText: "conduct the complete consultation while adapting the history to the clinically relevant information in each case.",
     studentMissing: "not registered",
     notInformed: "not informed",
     collegeMissing: "not informed",
     complaint: "Complaint",
-    expectedScript: "Conduct the history naturally. In the HPI, explore at least two clinical dimensions such as onset, location, evolution, symptoms, or associated factors. Broad, specific, and compound questions can reveal chart data.",
+    expectedScript: "Conduct the history naturally. Broad, specific, and compound questions are considered according to each clinical item's content, without requiring fixed wording.",
     score: "Score",
     diagnosis: "Diagnosis",
     diagnosisHit: "main hypothesis correct",
@@ -336,13 +333,13 @@ const I18N = {
     chart: "Historia clínica",
     progress: "Progreso",
     physicalExam: "Examen físico",
-    physicalExamLocked: "El examen físico se liberará tras 3 preguntas sobre la enfermedad actual que cubran al menos 2 dimensiones clínicas, 3 bloques adicionales y parte de los datos esenciales.",
+    physicalExamLocked: "El examen físico se liberará después de abordar la enfermedad actual, otros bloques pertinentes y parte de los datos esenciales del caso.",
     physicalExamUnlocked: "Detalles del examen clínico físico liberados",
     physicalExamUnavailable: "Examen físico detallado no registrado para este caso.",
     stageLocked: "Etapa registrada fuera de la secuencia esperada.",
     virtualOffice: "Consultorio virtual 3D",
     patient: "Paciente",
-    askQuestion: "Pregunte al paciente, por ejemplo: ¿desde cuándo tiene la lesión?",
+    askQuestion: "Converse con el paciente sobre la queja y los antecedentes relevantes.",
     send: "Enviar",
     anamnesisSequence: "Secuencia de anamnesis",
     diagnosticHypotheses: "Hipótesis diagnósticas",
@@ -357,7 +354,7 @@ const I18N = {
     neutral: "Neutro",
     done: "hecho",
     pending: "pendiente",
-    stageRed: "0/3",
+    stageRed: "sin iniciar",
     stageYellow: "en progreso",
     stageGreen: "completo",
     currentStage: "etapa actual",
@@ -375,12 +372,12 @@ const I18N = {
     base: "Base",
     objective: "Objetivo",
     baseText: "guion clínico extraído del archivo Word importado.",
-    objectiveText: "siga la secuencia: enfermedad actual, historia familiar, médica, odontológica y hábitos/dependencias; en enfermedad actual, valore cuándo, dónde, cómo y por qué.",
+    objectiveText: "realice la consulta completa adaptando la anamnesis a la información clínicamente relevante de cada caso.",
     studentMissing: "no registrado",
     notInformed: "no informado",
     collegeMissing: "no informada",
     complaint: "Queja",
-    expectedScript: "Conduzca la anamnesis con naturalidad. En la enfermedad actual, explore al menos dos dimensiones clínicas, como inicio, ubicación, evolución, síntomas o factores asociados. Las preguntas amplias, específicas o compuestas revelan datos.",
+    expectedScript: "Conduzca la anamnesis con naturalidad. Las preguntas amplias, específicas o compuestas se consideran según el contenido de cada ítem clínico, sin exigir una formulación fija.",
     score: "Nota",
     diagnosis: "Diagnóstico",
     diagnosisHit: "hipótesis principal correcta",
@@ -478,41 +475,10 @@ const FLOW_KEYWORDS = {
 };
 
 const MIN_STRUCTURED_QUESTIONS_PER_STAGE = 1;
-const HDA_REQUIRED_AXES = ["when", "where", "how", "why"];
-const MIN_HDA_AXES_FOR_EXAM = 2;
-const MIN_HDA_QUESTIONS_FOR_EXAM = 3;
-const MIN_OTHER_DOMAINS_FOR_EXAM = 3;
-const MIN_REQUIRED_DATA_RATIO_FOR_EXAM = 0.45;
-const MIN_TOTAL_QUESTIONS_FALLBACK = 8;
-const HDA_AXIS_LABELS = {
-  when: { pt: "quando", en: "when", es: "cuándo" },
-  where: { pt: "onde", en: "where", es: "dónde" },
-  how: { pt: "como", en: "how", es: "cómo" },
-  why: { pt: "por quê", en: "why", es: "por qué" }
-};
-const HDA_AXIS_BY_INTENT = {
-  duration: "when",
-  location: "where",
-  appearance: "how",
-  growth: "how",
-  migration: "how",
-  frequency: "how",
-  pain: "how",
-  symptoms: "how",
-  bleeding: "how",
-  odor: "how",
-  feeding: "how",
-  scraping: "how",
-  ulcer: "how",
-  trauma: "why",
-  triggerEvent: "why",
-  prosthesis: "why",
-  stress: "why",
-  sun: "why",
-  medications: "why",
-  treatmentHistory: "why",
-  previousTreatment: "why"
-};
+const MIN_HDA_QUESTIONS_FOR_EXAM = 1;
+const MIN_OTHER_DOMAINS_FOR_EXAM = 2;
+const MIN_REQUIRED_DATA_RATIO_FOR_EXAM = 0.25;
+const MIN_TOTAL_QUESTIONS_FALLBACK = 5;
 const HDA_AXIS_INTENT_PREFERENCES = {
   when: ["duration", "frequency"],
   where: ["location"],
@@ -1915,7 +1881,6 @@ function loadCase(caseId) {
   state.flowEvents = [];
   state.structuredQuestions = {};
   state.structuredQuestionTotals = {};
-  state.hdaQuestionAxes = new Set();
   state.lastReport = null;
   state.pendingAnamnesisUpdate = null;
   state.pendingClinicalDatum = null;
@@ -1925,7 +1890,6 @@ function loadCase(caseId) {
   state.selectedPhysicalExams = new Set();
   state.revealedExamFindings = [];
   state.clinicalImageRevealed = false;
-  state.clinicalImageIndex = 0;
   state.diagnosisOrder = [];
   state.startedAt = Date.now();
   state.currentAttemptId = crypto.randomUUID();
@@ -2006,7 +1970,6 @@ function renderFlow() {
         <div class="coverage-bar" aria-label="${flowLabel(step.id)} ${domain.coverage}%">
           <span style="width: ${domain.coverage}%"></span>
         </div>
-        ${step.id === "currentIllness" ? renderHdaAxes(domain) : ""}
         <div class="flow-metrics">
           <span>${coverageStatus(domain.coverage)}</span>
           <span>${t("questionsShort")} ${domain.questionCount}</span>
@@ -2015,17 +1978,6 @@ function renderFlow() {
       </div>
     `;
   }).join("");
-}
-
-function renderHdaAxes(domain) {
-  return `
-    <ul class="flow-data" aria-label="${flowLabel(domain.groupId)}">
-      ${HDA_REQUIRED_AXES.map((axis) => {
-        const done = domain.hdaAxes?.includes(axis);
-        return `<li class="${done ? "done" : ""}"><span>${hdaAxisLabel(axis)}</span></li>`;
-      }).join("")}
-    </ul>
-  `;
 }
 
 function renderProgress() {
@@ -2047,10 +1999,7 @@ function domainCoverageReport(groupId) {
   const revealedRequired = requiredEntries.filter(([key]) => state.revealed.has(key)).length;
   const questionCount = structuredQuestionCount(groupId);
   const requiredQuestions = requiredStructuredQuestions(groupId);
-  const hdaAxes = groupId === "currentIllness" ? Array.from(state.hdaQuestionAxes) : [];
-  const questionCoverage = groupId === "currentIllness"
-    ? hdaQuestionCoverage()
-    : requiredQuestions ? Math.min(questionCount / requiredQuestions, 1) : 1;
+  const questionCoverage = requiredQuestions ? Math.min(questionCount / requiredQuestions, 1) : 1;
   const dataCoverage = totalRequired ? revealedRequired / totalRequired : questionCoverage;
   const coverage = totalRequired
     ? revealedRequired === totalRequired
@@ -2064,18 +2013,9 @@ function domainCoverageReport(groupId) {
     revealedRequired,
     questionCount,
     requiredQuestions,
-    hdaAxes,
     coverage,
     score: Math.round(coverage / 10)
   };
-}
-
-function hdaQuestionCoverage() {
-  return HDA_REQUIRED_AXES.length ? state.hdaQuestionAxes.size / HDA_REQUIRED_AXES.length : 1;
-}
-
-function hdaAxisLabel(axis) {
-  return HDA_AXIS_LABELS[axis]?.[state.language] || HDA_AXIS_LABELS[axis]?.pt || axis;
 }
 
 function coverageStatus(coverage) {
@@ -2104,7 +2044,9 @@ function renderPhysicalExam() {
   els.completeExamBtn.disabled = state.selectedPhysicalExams.size === 0;
   els.physicalExamBox.innerHTML = state.revealedExamFindings.length
     ? `<strong>Achados obtidos</strong><ul>${state.revealedExamFindings.map((finding) => `<li>${clinicalText(finding)}</li>`).join("")}</ul>`
-    : "Selecione uma avaliação para obter os achados do paciente.";
+    : state.selectedPhysicalExams.size
+      ? "Avaliação registrada. O roteiro não descreve achados específicos para esta seleção."
+      : "Selecione uma avaliação para obter os achados do paciente.";
 }
 
 function updatePhysicalExamUnlock() {
@@ -2127,13 +2069,12 @@ function updatePhysicalExamUnlock() {
 
 function examUnlockProgressText() {
   const hdaQuestions = Math.min(structuredQuestionCount("currentIllness"), MIN_HDA_QUESTIONS_FOR_EXAM);
-  const hdaAxes = Math.min(state.hdaQuestionAxes.size, MIN_HDA_AXES_FOR_EXAM);
   const unique = getUniqueFlowEvents();
   const domains = ANAMNESIS_FLOW
     .filter((step) => step.id !== "currentIllness")
     .filter((step) => unique.includes(step.id) || structuredQuestionCount(step.id) > 0)
     .length;
-  return `Para avançar: HDA ${hdaQuestions}/${MIN_HDA_QUESTIONS_FOR_EXAM} perguntas · ${hdaAxes}/${MIN_HDA_AXES_FOR_EXAM} dimensões · blocos ${Math.min(domains, MIN_OTHER_DOMAINS_FOR_EXAM)}/${MIN_OTHER_DOMAINS_FOR_EXAM}`;
+  return `Para avançar: doença atual ${hdaQuestions}/${MIN_HDA_QUESTIONS_FOR_EXAM} · outros blocos pertinentes ${Math.min(domains, MIN_OTHER_DOMAINS_FOR_EXAM)}/${MIN_OTHER_DOMAINS_FOR_EXAM}`;
 }
 
 function renderChoices() {
@@ -2210,7 +2151,7 @@ function isComplementaryExamAction(action) {
 }
 
 function physicalExamChoices() {
-  const general = ["Estado geral", "Sinais vitais", "Pele", "Cabeça e pescoço", "Linfonodos", "Boca e orofaringe", "Cardiovascular", "Respiratório", "Abdome", "Musculoesquelético", "Neurológico"];
+  const general = ["Estado geral", "Sinais vitais", "Pele", "Cabeça e pescoço", "Linfonodos", "Inspeção da lesão", "Cardiovascular", "Respiratório", "Abdome", "Musculoesquelético", "Neurológico"];
   const caseSpecific = state.currentCase.actions.filter(isPhysicalExamAction).map(clinicalText);
   return Array.from(new Set([...caseSpecific, ...general]));
 }
@@ -2248,7 +2189,38 @@ function isClinicalInspectionOption(option) {
 }
 
 function clinicalImagesForCurrentCase() {
-  return state.lesionImageLibrary[state.currentCase?.diagnosis]?.images || [];
+  const images = state.lesionImageLibrary[state.currentCase?.diagnosis]?.images || [];
+  if (images.length <= 1) return images;
+  const normalizeClinicalDescription = (value) => normalize(value)
+    .replace(/\b(linha|linhas)\b/g, "estria")
+    .replace(/\b(estrias)\b/g, "estria")
+    .replace(/\b(branca|brancas|branco|brancos|esbranquicada|esbranquicadas|esbranquiçada|esbranquiçadas)\b/g, "branco")
+    .replace(/\b(vermelha|vermelhas|vermelho|vermelhos|eritematosa|eritematosas|eritroplasica|eritroplasicas)\b/g, "vermelho")
+    .replace(/\b(ulcera|ulceras|ulcerada|ulceradas|ulcerado|ulcerados)\b/g, "ulcera");
+  const coreContext = normalizeClinicalDescription([
+    state.currentCase?.chiefComplaint,
+    state.currentCase?.physicalExam?.summary,
+    ...(state.currentCase?.physicalExam?.findings || []),
+    ...Object.values(state.currentCase?.hiddenData || {})
+      .filter((item) => item.group === "currentIllness" && ["Localizacao", "Aparencia", "Aspecto", "Textura"].some((label) => normalize(item.label).includes(normalize(label))))
+      .map((item) => `${item.label || ""} ${item.value || ""}`)
+  ].join(" "));
+  const context = normalizeClinicalDescription([
+    coreContext,
+    state.currentCase?.openingLine,
+    ...Object.values(state.currentCase?.hiddenData || {})
+      .filter((item) => item.group === "currentIllness")
+      .map((item) => `${item.label || ""} ${item.value || ""}`)
+  ].join(" "));
+  const ignored = new Set(["com", "uma", "para", "oral", "lesao", "lesoes", "manifestacao", "aspecto", "paciente", "mucosa", "caso", "inicio", "descrita", "livro", "diagnostico"]);
+  const locationTokens = new Set(["assoalho", "lingua", "labio", "palato", "gengiva", "jugal", "bochecha", "parotida", "rebordo", "retromolar"]);
+  const score = (item) => normalizeClinicalDescription(item.caption || "").split(" ")
+    .filter((token) => token.length >= 4 && !ignored.has(token))
+    .reduce((total, token) => {
+      if (coreContext.includes(token)) return total + (locationTokens.has(token) ? 8 : 2);
+      return total + (context.includes(token) ? (locationTokens.has(token) ? 3 : 1) : 0);
+    }, 0);
+  return [images.reduce((best, item) => score(item) > score(best) ? item : best, images[0])];
 }
 
 function renderClinicalImage() {
@@ -2258,40 +2230,46 @@ function renderClinicalImage() {
     els.clinicalImage.removeAttribute("src");
     return;
   }
-  state.clinicalImageIndex %= images.length;
-  const item = images[state.clinicalImageIndex];
+  const item = images[0];
   els.clinicalImagePanel.hidden = false;
   els.clinicalImage.src = item.src;
   els.clinicalImage.alt = "Imagem clínica liberada após inspeção da região";
   els.clinicalImageTitle.textContent = "Inspeção clínica da região";
   els.clinicalImageCaption.textContent = "Observe localização, cor, superfície, limites, distribuição e demais características semiológicas.";
   els.clinicalImageSource.textContent = `Fonte educacional: Diagnóstico Diferencial de Lesões Bucais na Clínica Odontológica, p. ${item.page}.`;
-  els.nextClinicalImageBtn.hidden = images.length < 2;
-  els.nextClinicalImageBtn.textContent = `Próxima imagem (${state.clinicalImageIndex + 1}/${images.length})`;
 }
-
-els.nextClinicalImageBtn.addEventListener("click", () => {
-  const images = clinicalImagesForCurrentCase();
-  if (!images.length) return;
-  state.clinicalImageIndex = (state.clinicalImageIndex + 1) % images.length;
-  renderClinicalImage();
-});
 
 function physicalFindingsFor(option) {
   const text = normalize(option);
   const exam = state.currentCase.physicalExam;
   if (exam?.findings?.length) {
-    if (text.includes("sinais vitais")) return ["Sinais vitais sem valores estruturados cadastrados neste caso."];
-    const chunkSize = Math.max(1, Math.ceil(exam.findings.length / 4));
-    const start = Math.min(state.revealedExamFindings.length, Math.max(0, exam.findings.length - chunkSize));
-    return exam.findings.slice(start, start + chunkSize);
+    const findings = exam.findings.filter((finding) => !isNonFindingIntraoralObservation(finding));
+    if (isClinicalInspectionOption(option)) return findings.filter((finding) => !isExtraoralFinding(finding));
+    if (["cabeca", "pescoco", "linfonodo"].some((token) => text.includes(token))) {
+      return findings.filter(isExtraoralFinding);
+    }
+    const matching = findings.filter((finding) => {
+      const normalizedFinding = normalize(finding);
+      return text.split(" ").some((token) => token.length >= 5 && normalizedFinding.includes(token));
+    });
+    return matching;
   }
   const matchingData = Object.entries(state.currentCase.hiddenData)
     .filter(([key, item]) => [key, item.label, item.category].some((value) => text.includes(normalize(value || "")) || normalize(value || "").includes(text)))
     .map(([, item]) => item.value);
   if (matchingData.length) return matchingData;
-  if (text.includes("sinais vitais")) return ["Sinais vitais sem alterações relevantes cadastradas neste caso."];
-  return [`${option}: sem achados adicionais estruturados no roteiro deste caso.`];
+  return [];
+}
+
+function isNonFindingIntraoralObservation(finding) {
+  const text = normalize(finding);
+  return ["exame intraoral", "alteracoes intraorais", "observacoes intraorais"].includes(text);
+}
+
+function isExtraoralFinding(finding) {
+  const text = normalize(finding);
+  return ["linfonodo", "cadeia cervical", "parotida", "submandibular", "assimetria facial", "aumento de volume facial"]
+    .some((token) => text.includes(token));
 }
 
 function renderExamResults() {
@@ -2507,8 +2485,7 @@ function recordKnownTopicQuestion(topic, normalizedQuestion) {
   const groupId = groupByTopic[topic] || groupByTopic[detectKnownClinicalTopic(normalizedQuestion)] || "";
   if (!groupId) return;
   recordFlowStep(groupId);
-  const hdaAxis = groupId === "currentIllness" ? detectHdaQuestionAxis(normalizedQuestion) : "";
-  registerStructuredQuestion(groupId, hdaAxis ? `hdaAxis:${hdaAxis}` : `noData:${topic}:${hashText(normalizedQuestion)}`, normalizedQuestion);
+  registerStructuredQuestion(groupId, `noData:${topic}:${hashText(normalizedQuestion)}`, normalizedQuestion);
 }
 
 function revealIfExists(key, options = {}) {
@@ -2559,7 +2536,6 @@ function canAccessStage(groupId) {
 }
 
 function requiredStructuredQuestions(groupId) {
-  if (groupId === "currentIllness") return MIN_HDA_QUESTIONS_FOR_EXAM;
   return MIN_STRUCTURED_QUESTIONS_PER_STAGE;
 }
 
@@ -2569,12 +2545,9 @@ function currentExpectedStage() {
 }
 
 function hasRequiredStructuredDepth(groupId) {
-  if (groupId === "currentIllness") {
-    return state.hdaQuestionAxes.size >= MIN_HDA_AXES_FOR_EXAM && structuredQuestionCount(groupId) >= MIN_HDA_QUESTIONS_FOR_EXAM;
-  }
   const requiredEntries = orderedGroupEntries(groupId).filter(([, item]) => item.required);
   if (requiredEntries.length) {
-    return requiredEntries.some(([key]) => state.revealed.has(key));
+    return requiredEntries.some(([key]) => state.revealed.has(key)) || structuredQuestionCount(groupId) >= requiredStructuredQuestions(groupId);
   }
   return structuredQuestionCount(groupId) >= requiredStructuredQuestions(groupId);
 }
@@ -2590,19 +2563,10 @@ function registerStructuredQuestion(groupId, key, normalizedQuestion = "") {
   if (state.structuredQuestions[groupId].has(signature)) return;
   state.structuredQuestions[groupId].add(signature);
   state.structuredQuestionTotals[groupId] = (state.structuredQuestionTotals[groupId] || 0) + 1;
-  registerHdaQuestionAxis(groupId, key, normalizedQuestion);
   if (!state.currentCase?.hiddenData?.[key]) {
     queueStageAnamnesisUpdate(groupId);
   }
   renderFlow();
-}
-
-function registerHdaQuestionAxis(groupId, key, normalizedQuestion = "") {
-  if (groupId !== "currentIllness") return;
-  const axesFromQuestion = normalizedQuestion ? detectAllHdaQuestionAxes(normalizedQuestion) : [];
-  const intentAxis = HDA_AXIS_BY_INTENT[key] || (String(key).startsWith("hdaAxis:") ? key.split(":")[1] : "");
-  const axes = new Set([...axesFromQuestion, intentAxis].filter((axis) => HDA_REQUIRED_AXES.includes(axis)));
-  axes.forEach((axis) => state.hdaQuestionAxes.add(axis));
 }
 
 function stageLockedAnswer() {
@@ -2941,19 +2905,6 @@ function detectHdaQuestionAxis(normalizedQuestion) {
     return match.axis;
   }
   return "";
-}
-
-function detectAllHdaQuestionAxes(normalizedQuestion) {
-  if (isGreetingQuestion(normalizedQuestion)) return [];
-  const patterns = {
-    when: ["quando", "desde quando", "ha quanto", "há quanto", "quanto tempo", "comecou", "começou", "inicio", "início", "when", "how long", "since when", "started", "cuando", "cuándo", "desde cuando", "desde cuándo", "cuanto tiempo", "cuánto tiempo", "empezo", "empezó"],
-    where: ["onde", "local", "lugar", "regiao", "região", "parte", "where", "location", "site", "area", "donde", "dónde", "ubicacion", "ubicación", "sitio", "zona"],
-    how: ["como", "aparencia", "aparência", "aspecto", "evolucao", "evolução", "mudou", "cresceu", "aumentou", "diminuiu", "sintoma", "dor", "incomoda", "how", "appearance", "look", "evolution", "changed", "grew", "symptom", "pain", "cómo", "aspecto", "evolucion", "evolución", "cambio", "crecio", "creció", "sintoma", "síntoma", "dolor"],
-    why: ["por que", "por quê", "porque apareceu", "porque surgiu", "motivo", "causa", "gatilho", "desencadeou", "associado", "relacionado", "depois de", "why", "cause", "trigger", "because", "associated", "related", "por qué", "gatillo", "desencadeno", "asociado", "relacionado"]
-  };
-  return HDA_REQUIRED_AXES.filter((axis) =>
-    patterns[axis].some((token) => normalizedQuestion.includes(normalize(token)))
-  );
 }
 
 function isGreetingQuestion(normalizedQuestion) {
@@ -3544,10 +3495,10 @@ function findMatchingHiddenData(normalizedQuestion) {
 
 function findMatchingHiddenDataInGroup(normalizedQuestion, groupId) {
   const entries = Object.entries(state.currentCase.hiddenData).filter(([, item]) => item.group === groupId);
-  return findBestHiddenDataMatch(normalizedQuestion, entries);
+  return findBestHiddenDataMatch(normalizedQuestion, entries, 0.25);
 }
 
-function findBestHiddenDataMatch(normalizedQuestion, entries) {
+function findBestHiddenDataMatch(normalizedQuestion, entries, minimumScore = 1) {
   const candidates = entries
     .map(([key, item]) => {
       const score = item.keywords.reduce((total, keyword) => {
@@ -3563,7 +3514,7 @@ function findBestHiddenDataMatch(normalizedQuestion, entries) {
       }, 0);
       return { key, item, score };
     })
-    .filter((entry) => entry.score >= 1)
+    .filter((entry) => entry.score >= minimumScore)
     .sort((a, b) => b.score - a.score);
 
   if (!candidates.length) return null;
@@ -3573,7 +3524,7 @@ function findBestHiddenDataMatch(normalizedQuestion, entries) {
 function findFlexibleHiddenData(normalizedQuestion) {
   const tokens = normalizedQuestion.split(" ").filter((token) => token.length >= 4);
   const meaningfulTokens = tokens.filter((token) => !QUESTION_STOPWORDS.has(token));
-  if (meaningfulTokens.length < 2) return null;
+  if (!meaningfulTokens.length) return null;
 
   const scored = Object.entries(state.currentCase.hiddenData)
     .filter(([key]) => !state.revealed.has(key))
@@ -3584,7 +3535,7 @@ function findFlexibleHiddenData(normalizedQuestion) {
       const score = meaningfulTokens.reduce((total, token) => total + (haystack.includes(token) ? 1 : 0), 0);
       return { key, item, score };
     })
-    .filter((entry) => entry.score >= 2)
+    .filter((entry) => entry.score >= 1)
     .sort((a, b) => b.score - a.score);
 
   if (!scored.length) return null;
