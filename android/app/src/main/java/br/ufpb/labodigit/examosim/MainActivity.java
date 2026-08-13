@@ -18,6 +18,7 @@ import android.webkit.JavascriptInterface;
 import android.webkit.URLUtil;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
+import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
@@ -26,9 +27,12 @@ import android.widget.Toast;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 
 public class MainActivity extends Activity {
     private static final String APP_URL = "https://labodontodigitalufpb-png.github.io/simoral/";
+    private static final String APP_HOST = "labodontodigitalufpb-png.github.io";
+    private static final String APP_PATH = "/simoral/";
     private WebView webView;
 
     @SuppressLint({"SetJavaScriptEnabled", "JavascriptInterface"})
@@ -47,11 +51,17 @@ public class MainActivity extends Activity {
         settings.setAllowFileAccess(false);
         settings.setAllowContentAccess(false);
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
-        settings.setUserAgentString(settings.getUserAgentString() + " ExamOSimAndroid/1.0");
+        settings.setUserAgentString(settings.getUserAgentString() + " ExamOSimAndroid/1.4");
 
         webView.addJavascriptInterface(new DownloadBridge(this), "ExamOSimAndroid");
         webView.setWebChromeClient(new WebChromeClient());
         webView.setWebViewClient(new WebViewClient() {
+            @Override
+            public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
+                WebResourceResponse localResponse = localAssetResponse(request.getUrl());
+                return localResponse != null ? localResponse : super.shouldInterceptRequest(view, request);
+            }
+
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 Uri uri = request.getUrl();
@@ -71,7 +81,33 @@ public class MainActivity extends Activity {
     }
 
     private boolean isTrustedHost(String host) {
-        return "labodontodigitalufpb-png.github.io".equals(host) || "simoral.onrender.com".equals(host);
+        return APP_HOST.equals(host) || "simoral.onrender.com".equals(host);
+    }
+
+    private WebResourceResponse localAssetResponse(Uri uri) {
+        if (!"https".equals(uri.getScheme()) || !APP_HOST.equals(uri.getHost()) || !uri.getPath().startsWith(APP_PATH)) {
+            return null;
+        }
+        String assetPath = uri.getPath().substring(APP_PATH.length());
+        if (assetPath.isEmpty()) assetPath = "index.html";
+        try {
+            InputStream stream = getAssets().open(assetPath);
+            return new WebResourceResponse(mimeTypeFor(assetPath), "UTF-8", stream);
+        } catch (IOException error) {
+            return null;
+        }
+    }
+
+    private static String mimeTypeFor(String path) {
+        String lower = path.toLowerCase();
+        if (lower.endsWith(".html")) return "text/html";
+        if (lower.endsWith(".css")) return "text/css";
+        if (lower.endsWith(".js")) return "text/javascript";
+        if (lower.endsWith(".json")) return "application/json";
+        if (lower.endsWith(".png")) return "image/png";
+        if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) return "image/jpeg";
+        if (lower.endsWith(".svg")) return "image/svg+xml";
+        return "application/octet-stream";
     }
 
     private DownloadListener createDownloadListener() {

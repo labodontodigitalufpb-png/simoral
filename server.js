@@ -18,6 +18,34 @@ const ALLOWED_ORIGINS = new Set([
   "http://localhost:5173",
   "http://127.0.0.1:5173"
 ]);
+const DENTAL_SPECIALTIES = new Set([
+  "Cirurgião-dentista (generalista)",
+  "Acupuntura",
+  "Cirurgia e Traumatologia Bucomaxilofaciais",
+  "Cirurgia Estética Orofacial",
+  "Dentística",
+  "Disfunção Temporomandibular e Dor Orofacial",
+  "Endodontia",
+  "Estomatologia",
+  "Harmonização Orofacial",
+  "Homeopatia",
+  "Implantodontia",
+  "Odontogeriatria",
+  "Odontologia do Esporte",
+  "Odontologia do Trabalho",
+  "Odontologia Hospitalar",
+  "Odontologia Legal",
+  "Odontologia para Pacientes com Necessidades Especiais",
+  "Odontopediatria",
+  "Ortodontia",
+  "Ortopedia Funcional dos Maxilares",
+  "Patologia Oral e Maxilofacial",
+  "Periodontia",
+  "Prótese Bucomaxilofacial",
+  "Prótese Dentária",
+  "Radiologia Odontológica e Imaginologia",
+  "Saúde Coletiva"
+]);
 
 const MIME_TYPES = {
   ".css": "text/css; charset=utf-8",
@@ -119,7 +147,12 @@ async function handleApi(req, res, url) {
       sendJson(res, 404, { error: "Conta não encontrada." });
       return;
     }
-    user.profile = normalizeProfile({ ...user.profile, ...body, email: user.email });
+    const profile = normalizeProfile({ ...user.profile, ...body, email: user.email });
+    if (!hasValidDentalSpecialties(profile.specialties)) {
+      sendJson(res, 400, { error: "Selecione uma ou mais especialidades odontológicas válidas." });
+      return;
+    }
+    user.profile = profile;
     writeDatabase(database);
     sendJson(res, 200, { profile: user.profile });
     return;
@@ -174,7 +207,11 @@ async function handleRegistration(req, res) {
   const profile = normalizeProfile(body.profile || body);
   const password = String(body.password || "");
   if (!profile.name || !profile.profession || !profile.city || !profile.stateRegion || !isEmail(profile.email)) {
-    sendJson(res, 400, { error: "Preencha nome, profissão, cidade, UF e um e-mail válido." });
+    sendJson(res, 400, { error: "Preencha nome, especialidade odontológica, cidade, UF e um e-mail válido." });
+    return;
+  }
+  if (!hasValidDentalSpecialties(profile.specialties)) {
+    sendJson(res, 400, { error: "Selecione uma ou mais especialidades odontológicas válidas." });
     return;
   }
   if (password.length < 8) {
@@ -257,19 +294,34 @@ function safeEqual(left, right) {
 }
 
 function adminProfile() {
-  return { name: "Administrador principal", profession: "Administração", city: "", stateRegion: "", email: ADMIN_EMAIL, id: "", college: "ExamOSim" };
+  return { name: "Administrador principal", profession: "Administração", specialties: [], city: "", stateRegion: "", email: ADMIN_EMAIL, id: "", college: "ExamOSim" };
 }
 
 function normalizeProfile(profile = {}) {
+  const specialties = normalizeSpecialties(profile);
   return {
     name: cleanText(profile.name, 160),
-    profession: cleanText(profile.profession, 100),
+    profession: specialties.join(" · "),
+    specialties,
     city: cleanText(profile.city, 100),
     stateRegion: cleanText(profile.stateRegion, 2).toUpperCase(),
     email: cleanText(profile.email, 254).toLowerCase(),
     id: cleanText(profile.id, 100),
     college: cleanText(profile.college, 180)
   };
+}
+
+function normalizeSpecialties(profile = {}) {
+  const raw = Array.isArray(profile.specialties)
+    ? profile.specialties
+    : String(profile.profession || "").split(" · ");
+  return [...new Set(raw.slice(0, DENTAL_SPECIALTIES.size).map((item) => cleanText(item, 100))
+    .map((item) => item === "Odontologia" ? "Cirurgião-dentista (generalista)" : item)
+    .filter(Boolean))];
+}
+
+function hasValidDentalSpecialties(specialties) {
+  return Array.isArray(specialties) && specialties.length > 0 && specialties.every((item) => DENTAL_SPECIALTIES.has(item));
 }
 
 function normalizeAttempt(body, user) {
@@ -608,7 +660,7 @@ function applyCors(req, res) {
   if (!origin || !ALLOWED_ORIGINS.has(origin)) return;
 
   res.setHeader("Access-Control-Allow-Origin", origin);
-  res.setHeader("Access-Control-Allow-Methods", "GET, HEAD, POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Methods", "GET, HEAD, POST, PUT, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
   res.setHeader("Vary", "Origin");
 }

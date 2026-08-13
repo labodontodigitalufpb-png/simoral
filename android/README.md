@@ -1,12 +1,8 @@
 # APK Android de teste
 
-O aplicativo Android abre o ExamOSim publicado em:
+O aplicativo Android inclui a interface, os casos e as imagens do ExamOSim dentro da própria APK. A conexão com a internet continua necessária para autenticação, persistência dos resultados e recursos apoiados pelo servidor.
 
-```text
-https://labodontodigitalufpb-png.github.io/simoral/
-```
-
-Ele requer conexão com a internet. Como a interface é carregada do endereço público, novas versões publicadas do site ficam disponíveis no aplicativo sem gerar outro APK.
+O build sincroniza automaticamente `index.html`, `app.js`, `styles.css`, `assets/` e os arquivos de dados necessários antes de empacotar a APK. Assim, cada mudança local da interface exige a geração de uma nova APK.
 
 ## Compilar
 

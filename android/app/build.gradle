@@ -10,8 +10,8 @@ android {
         applicationId "br.ufpb.labodigit.examosim"
         minSdk 24
         targetSdk 35
-        versionCode 1
-        versionName "1.0-test"
+        versionCode 5
+        versionName "1.4-test"
     }
 
     compileOptions {
@@ -25,4 +25,24 @@ android {
             proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
         }
     }
+
+    sourceSets {
+        main.assets.srcDir(layout.buildDirectory.dir("generated/webAssets"))
+    }
+}
+
+tasks.register("syncWebAssets", Sync) {
+    from(rootProject.projectDir.parentFile) {
+        include "index.html"
+        include "app.js"
+        include "styles.css"
+        include "assets/**"
+        include "data/cases.json"
+        include "data/lesion-images.json"
+    }
+    into(layout.buildDirectory.dir("generated/webAssets"))
+}
+
+tasks.named("preBuild").configure {
+    dependsOn("syncWebAssets")
 }
