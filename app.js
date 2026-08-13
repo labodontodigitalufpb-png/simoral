@@ -7,6 +7,16 @@ function apiUrl(path) {
   return `${API_BASE_URL}${path}`;
 }
 
+const DENTAL_SPECIALTIES = [
+  "Cirurgião-dentista (generalista)", "Acupuntura", "Cirurgia e Traumatologia Bucomaxilofaciais",
+  "Cirurgia Estética Orofacial", "Dentística", "Disfunção Temporomandibular e Dor Orofacial",
+  "Endodontia", "Estomatologia", "Harmonização Orofacial", "Homeopatia", "Implantodontia",
+  "Odontogeriatria", "Odontologia do Esporte", "Odontologia do Trabalho", "Odontologia Hospitalar",
+  "Odontologia Legal", "Odontologia para Pacientes com Necessidades Especiais", "Odontopediatria",
+  "Ortodontia", "Ortopedia Funcional dos Maxilares", "Patologia Oral e Maxilofacial", "Periodontia",
+  "Prótese Bucomaxilofacial", "Prótese Dentária", "Radiologia Odontológica e Imaginologia", "Saúde Coletiva"
+];
+
 const state = {
   language: "pt",
   cases: [],
@@ -43,6 +53,7 @@ const state = {
     id: "",
     college: "",
     profession: "",
+    specialties: [],
     city: "",
     stateRegion: "",
     email: ""
@@ -1953,7 +1964,7 @@ function renderChart() {
   const domainReports = domainCoverageReports();
   const rows = [
     [t("student"), state.student.name || t("studentMissing")],
-    ["Profissão", state.student.profession || t("notInformed")],
+    ["Especialidade odontológica", state.student.profession || t("notInformed")],
     ["Local de atuação", state.student.city ? `${state.student.city}/${state.student.stateRegion || "—"}` : t("notInformed")],
     [t("studentId"), state.student.id || t("notInformed")],
     [t("studentCollege"), state.student.college || t("collegeMissing")],
@@ -4324,6 +4335,8 @@ function setOsceStatus(message) {
 }
 
 function initAuthentication() {
+  renderSpecialtyOptions(authEls.registerProfession, "registerSpecialties");
+  renderSpecialtyOptions(els.profession, "profileSpecialties");
   authEls.loginTab.addEventListener("click", () => showAuthView("login"));
   authEls.registerTab.addEventListener("click", () => showAuthView("register"));
   document.querySelectorAll("[name='loginRole']").forEach((input) => {
@@ -4383,9 +4396,15 @@ async function handleLogin(event) {
 
 async function handleRegistration(event) {
   event.preventDefault();
+  const specialties = selectedSpecialties(authEls.registerProfession);
+  if (!specialties.length) {
+    setAuthStatus("Marque pelo menos uma especialidade odontológica.", "error");
+    return;
+  }
   const profile = {
     name: authEls.registerName.value.trim(),
-    profession: authEls.registerProfession.value,
+    specialties,
+    profession: specialties.join(" · "),
     city: authEls.registerCity.value.trim(),
     stateRegion: authEls.registerState.value.trim().toUpperCase(),
     email: authEls.registerEmail.value.trim().toLowerCase(),
@@ -4409,13 +4428,19 @@ async function handleRegistration(event) {
 function startSession(role, profile, token = state.sessionToken, persist = true) {
   state.sessionRole = role;
   state.sessionToken = token;
-  state.student = { ...state.student, ...profile };
+  const specialties = specialtiesFromProfile(profile);
+  state.student = {
+    ...state.student,
+    ...profile,
+    specialties,
+    profession: specialties.length ? specialties.join(" · ") : profile.profession || ""
+  };
   syncProfessionalForm();
   if (persist) {
     sessionStorage.setItem("examosim.token", token);
   }
   authEls.sessionUser.textContent = profile.name || (role === "admin" ? "Administrador" : "Profissional");
-  authEls.sessionRole.textContent = role === "admin" ? "Acesso administrativo" : profile.profession || "Profissional de saúde";
+  authEls.sessionRole.textContent = role === "admin" ? "Acesso administrativo" : profile.profession || "Cirurgião-dentista";
   els.studentForm.querySelectorAll("input, select").forEach((field) => {
     field.disabled = role === "admin";
   });
@@ -4476,11 +4501,38 @@ function setAuthStatus(message, type = "") {
   authEls.authStatus.className = `auth-status ${type}`.trim();
 }
 
+function renderSpecialtyOptions(container, groupName) {
+  if (!container) return;
+  container.innerHTML = DENTAL_SPECIALTIES.map((specialty, index) => `
+    <label><input type="checkbox" name="${groupName}" value="${escapeHtml(specialty)}" /><span>${escapeHtml(specialty)}</span></label>
+  `).join("");
+}
+
+function selectedSpecialties(container) {
+  if (!container) return [];
+  return [...container.querySelectorAll("input[type='checkbox']:checked")].map((input) => input.value);
+}
+
+function specialtiesFromProfile(profile = {}) {
+  const source = Array.isArray(profile.specialties)
+    ? profile.specialties
+    : String(profile.profession || "").split(" · ");
+  return [...new Set(source.map((item) => item === "Odontologia" ? "Cirurgião-dentista (generalista)" : item)
+    .filter((item) => DENTAL_SPECIALTIES.includes(item)))];
+}
+
+function syncSpecialtyOptions(container, specialties) {
+  const selected = new Set(specialties);
+  container?.querySelectorAll("input[type='checkbox']").forEach((input) => {
+    input.checked = selected.has(input.value);
+  });
+}
+
 function syncProfessionalForm() {
   els.studentName.value = state.student.name || "";
   els.studentId.value = state.student.id || "";
   els.studentCollege.value = state.student.college || "";
-  els.profession.value = state.student.profession || "";
+  syncSpecialtyOptions(els.profession, specialtiesFromProfile(state.student));
   els.city.value = state.student.city || "";
   els.stateRegion.value = state.student.stateRegion || "";
   els.professionalEmail.value = state.student.email || "";
@@ -4583,7 +4635,7 @@ function showAttemptDetails(attemptId) {
   adminEls.dialogTitle.textContent = `${attempt.profissional || "Profissional"} · ${attempt.caso || "Caso clínico"}`;
   const ignored = new Set(["id", "userId", "transcript"]);
   const labels = {
-    dataHora: "Data e hora", profissional: "Profissional", profissao: "Profissão", cidade: "Cidade",
+    dataHora: "Data e hora", profissional: "Profissional", profissao: "Especialidade odontológica", cidade: "Cidade",
     estado: "UF", email: "E-mail", registroProfissional: "Registro profissional", instituicao: "Instituição",
     caso: "Caso", paciente: "Paciente", queixa: "Queixa", nota: "Nota", tempoSegundos: "Tempo (segundos)",
     observacoesAvaliador: "Observações", justificativaDiagnostica: "Justificativa diagnóstica",
@@ -4669,11 +4721,12 @@ els.studentForm.addEventListener("input", () => {
   state.student.name = els.studentName.value.trim();
   state.student.id = els.studentId.value.trim();
   state.student.college = els.studentCollege.value.trim();
-  state.student.profession = els.profession.value;
+  state.student.specialties = selectedSpecialties(els.profession);
+  state.student.profession = state.student.specialties.join(" · ");
   state.student.city = els.city.value.trim();
   state.student.stateRegion = els.stateRegion.value;
   authEls.sessionUser.textContent = state.student.name || "Profissional";
-  authEls.sessionRole.textContent = state.student.profession || "Profissional de saúde";
+  authEls.sessionRole.textContent = state.student.profession || "Cirurgião-dentista";
   renderChart();
   renderDashboard();
   clearTimeout(profileSaveTimer);

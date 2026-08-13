@@ -8,7 +8,7 @@ Plataforma educacional de treinamento em raciocínio clínico com paciente virtu
 - Página inicial pública com apresentação, instruções, login profissional, acesso administrativo e cadastro.
 - Autenticação no servidor com senhas protegidas por PBKDF2 e sessões assinadas.
 - Banco com 52 casos clínicos em JSON, sem programação individual da interface.
-- Perfil multiprofissional com nome, profissão, cidade, estado, e-mail, registro e instituição.
+- Perfil odontológico com nome, uma ou mais especialidades, cidade, estado, e-mail, registro e instituição.
 - Painel profissional com casos disponíveis, histórico centralizado, média e último desempenho.
 - Painel administrativo protegido com busca, visualização completa dos preenchimentos e exportação CSV geral.
 - Fotos de pacientes separadas por sexo e idade, recortadas da imagem de referência e associadas a cada caso.

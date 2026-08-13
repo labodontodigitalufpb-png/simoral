@@ -11,7 +11,7 @@
       <header class="landing-header">
         <a class="landing-brand" href="#inicio" aria-label="ExamOSim início">
           <span class="brand-mark">ES</span>
-          <span><strong>ExamOSim</strong><small>Raciocínio clínico em Estomatologia</small></span>
+          <span><strong>ExamOSim</strong><small>Diagnóstico Oral no SUS</small></span>
         </a>
         <nav aria-label="Navegação da página inicial">
           <a href="#como-funciona">Como funciona</a>
@@ -24,9 +24,9 @@
       <main id="inicio" class="landing-main">
         <section class="landing-hero">
           <div class="hero-copy">
-            <span class="hero-kicker">Consultório virtual inteligente · OSCE digital</span>
-            <h1>Treine todo o processo de raciocínio clínico em Estomatologia.</h1>
-            <p>Conduza a anamnese, realize o exame físico, organize diagnósticos diferenciais, solicite exames e defina a conduta em casos clínicos interativos.</p>
+            <span class="hero-kicker">Diagnóstico Oral no SUS · OSCE digital</span>
+            <h1>Treinamento em Diagnóstico Oral para cirurgiões-dentistas do SUS.</h1>
+            <p>Desenvolva o raciocínio clínico aplicado ao Diagnóstico Oral na rede pública: conduza a anamnese, realize o exame físico, organize diagnósticos diferenciais, solicite exames e defina a conduta em casos clínicos interativos.</p>
             <div class="hero-actions">
               <a class="hero-primary" href="#acesso">Entrar na plataforma</a>
               <a class="hero-secondary" href="#como-funciona">Conhecer o simulador</a>
@@ -58,9 +58,9 @@
             </form>
 
             <form id="registerForm" class="auth-form" hidden>
-              <div class="auth-instructions"><strong>Cadastro profissional</strong><p>Preencha seus dados para criar um perfil individual de treinamento.</p></div>
+              <div class="auth-instructions"><strong>Cadastro profissional</strong><p>Preencha seus dados odontológicos para criar um perfil individual de treinamento.</p></div>
               <label><span>Nome completo</span><input id="registerName" type="text" required autocomplete="name" /></label>
-              <label><span>Profissão</span><select id="registerProfession" required><option value="">Selecione</option><option>Medicina</option><option>Odontologia</option><option>Enfermagem</option><option>Fisioterapia</option><option>Fonoaudiologia</option><option>Farmácia</option><option>Nutrição</option><option>Psicologia</option><option>Outra profissão da saúde</option></select></label>
+              <fieldset class="specialty-fieldset"><legend>Especialidades odontológicas</legend><small>Marque uma ou mais opções.</small><div id="registerProfession" class="specialty-options"></div></fieldset>
               <div class="auth-form-row"><label><span>Cidade</span><input id="registerCity" type="text" required /></label><label><span>UF</span><input id="registerState" type="text" maxlength="2" required placeholder="PB" /></label></div>
               <label><span>E-mail</span><input id="registerEmail" type="email" required autocomplete="email" /></label>
               <label><span>Senha</span><input id="registerPassword" type="password" minlength="8" required autocomplete="new-password" placeholder="Mínimo de 8 caracteres" /></label>
@@ -85,13 +85,12 @@
         </section>
 
         <section class="access-guide">
-          <article><span>Para profissionais</span><h2>Como acessar</h2><ol><li>Crie sua conta com dados profissionais.</li><li>Entre usando e-mail e senha.</li><li>Complete o perfil e selecione um caso.</li><li>Siga as cinco etapas e salve seu resultado.</li></ol></article>
-          <article class="admin-guide"><span>Para administradores</span><h2>Acesso administrativo</h2><p>Selecione “Administrador” no formulário de login e use as credenciais fornecidas pela coordenação da plataforma.</p><small>As credenciais administrativas são restritas e não são exibidas na página pública.</small></article>
+          <article><span>Diagnóstico Oral no SUS</span><h2>Como iniciar o treinamento</h2><ol><li>Crie sua conta com seus dados profissionais.</li><li>Entre usando e-mail e senha.</li><li>Complete o perfil e selecione um caso.</li><li>Siga as cinco etapas e salve seu resultado.</li></ol></article>
         </section>
 
         <section id="sobre" class="landing-section about-simulator">
-          <div><span>Sobre o ExamOSim</span><h2>Raciocínio clínico em Estomatologia, não diagnóstico autônomo.</h2></div>
-          <p>O paciente virtual responde apenas com base no roteiro do caso. Um tutor clínico separado acompanha objetivos, progresso e desempenho. A plataforma foi concebida para educação e pesquisa em saúde, sem substituir atendimento, supervisão ou decisão profissional em pacientes reais.</p>
+          <div><span>Sobre o ExamOSim</span><h2>Treinamento em Diagnóstico Oral para a prática odontológica no SUS.</h2></div>
+          <p>O paciente virtual responde apenas com base no roteiro do caso. Um tutor clínico separado acompanha objetivos, progresso e desempenho. A plataforma foi concebida para treinar cirurgiões-dentistas atuantes no SUS em Diagnóstico Oral e apoiar a pesquisa em Odontologia, sem substituir atendimento, supervisão ou decisão profissional em pacientes reais.</p>
         </section>
       </main>
       <footer class="landing-footer"><strong>ExamOSim</strong><span>LABODIGIT · UFPB &nbsp;|&nbsp; Estomatologia · UEL</span><span>Uso exclusivamente educacional.</span></footer>
@@ -106,7 +105,7 @@
             <p data-i18n="tagline">Simulador inteligente de raciocínio clínico</p>
           </div>
         </div>
-        <div class="session-card"><div><small>Sessão atual</small><strong id="sessionUser">Profissional</strong><span id="sessionRole">Profissional de saúde</span></div><button id="logoutBtn" type="button">Sair</button></div>
+        <div class="session-card"><div><small>Sessão atual</small><strong id="sessionUser">Profissional</strong><span id="sessionRole">Cirurgião-dentista</span></div><button id="logoutBtn" type="button">Sair</button></div>
         <div class="institutional-brands" aria-label="Instituições responsáveis">
           <a href="https://www.ufpb.br/" target="_blank" rel="noreferrer" aria-label="Universidade Federal da Paraíba">
             <img class="institution-logo institution-logo-ufpb" src="assets/brands/ufpb.png" alt="UFPB" />
@@ -132,22 +131,11 @@
 
         <section class="panel-block student-card">
           <div class="section-title">
-            <span>Perfil profissional</span>
+            <span>Perfil odontológico</span>
           </div>
           <form id="studentForm" class="student-form">
             <input id="studentName" type="text" placeholder="Nome completo" aria-label="Nome completo" />
-            <select id="profession" aria-label="Profissão">
-              <option value="">Selecione a profissão</option>
-              <option>Medicina</option>
-              <option>Odontologia</option>
-              <option>Enfermagem</option>
-              <option>Fisioterapia</option>
-              <option>Fonoaudiologia</option>
-              <option>Farmácia</option>
-              <option>Nutrição</option>
-              <option>Psicologia</option>
-              <option>Outra profissão da saúde</option>
-            </select>
+            <fieldset class="specialty-fieldset compact"><legend>Especialidades</legend><small>Marque uma ou mais opções.</small><div id="profession" class="specialty-options"></div></fieldset>
             <div class="form-row">
               <input id="city" type="text" placeholder="Cidade" aria-label="Cidade" />
               <select id="stateRegion" aria-label="Estado">

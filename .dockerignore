@@ -1,0 +1,12 @@
+.git
+.github
+.agents
+.codex
+.data
+.env
+android
+dist
+node_modules
+npm-debug.log*
+Dockerfile*
+DEPLOY_GITHUB_PAGES.md
